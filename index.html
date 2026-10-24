@@ -852,18 +852,19 @@ const BEAM_C = new Array(64);
 
 // ---- weapons table ----
 const WPN = {
-  V: { name: 'VULCAN', col: '#ffe860', n: [2, 2, 3, 3, 4, 4, 5, 6], dmg: [1, 1.15, 1.15, 1.3, 1.3, 1.45, 1.5, 1.6], rate: [6, 6, 6, 5, 5, 5, 4, 4] },
-  R: { name: 'SCATTER', col: '#3a9aff', streams: [3, 5, 7, 9, 9, 11, 11, 13], spread: [0.4, 0.8, 0.95, 1.15, 1.15, 1.25, 1.25, 1.35], rate: [5, 5, 5, 4, 4, 4, 3, 3], spd: [6.2, 6.8, 7.4, 8, 8.4, 8.8, 9.2, 9.6], dmg: [1.5, 1.3, 1.3, 1.35, 1.5, 1.55, 1.7, 1.8] },
-  B: { name: 'BEAM', col: '#ff4a3a', w: [4, 6, 9, 13, 15, 18, 21, 25], dmg: [0.5, 0.75, 1.05, 1.45, 1.65, 1.9, 2.15, 2.45], pierce: [1, 2, 3, 99, 99, 99, 99, 99], range: [380, 450, 520, 600, 640, 680, 720, 760] },
+  V: { name: 'VULCAN', col: '#ffe860', n: [2, 2, 3, 3, 4, 4, 5, 6, 7, 8], dmg: [1, 1.15, 1.15, 1.3, 1.3, 1.45, 1.5, 1.6, 1.75, 1.9], rate: [6, 6, 6, 5, 5, 5, 4, 4, 4, 3] },
+  R: { name: 'SCATTER', col: '#3a9aff', streams: [3, 5, 7, 9, 9, 11, 11, 13, 15, 17], spread: [0.4, 0.8, 0.95, 1.15, 1.15, 1.25, 1.25, 1.35, 1.4, 1.45], rate: [5, 5, 5, 4, 4, 4, 3, 3, 3, 3], spd: [6.2, 6.8, 7.4, 8, 8.4, 8.8, 9.2, 9.6, 10, 10.4], dmg: [1.5, 1.3, 1.3, 1.35, 1.5, 1.55, 1.7, 1.8, 1.9, 2.05] },
+  B: { name: 'BEAM', col: '#ff4a3a', w: [4, 6, 9, 13, 15, 18, 21, 25, 28, 32], dmg: [0.5, 0.75, 1.05, 1.45, 1.65, 1.9, 2.15, 2.45, 2.75, 3.1], pierce: [1, 2, 3, 99, 99, 99, 99, 99, 99, 99], range: [380, 450, 520, 600, 640, 680, 720, 760, 800, 840] },
   // PLASMA: continuous homing whip laser(s) that bend/loop to targets and damage everything they touch
-  P: { name: 'PLASMA', col: '#c060ff', beams: [1, 1, 1, 2, 2, 2, 3, 3], segs: [22, 26, 30, 30, 34, 38, 38, 44], w: [3, 4, 5, 5, 6, 7, 7, 9], dmg: [0.22, 0.28, 0.34, 0.36, 0.42, 0.48, 0.5, 0.58], turn: [0.24, 0.26, 0.28, 0.3, 0.32, 0.34, 0.36, 0.38] },
+  P: { name: 'PLASMA', col: '#c060ff', beams: [1, 1, 1, 2, 2, 2, 3, 3, 3, 3], segs: [22, 26, 30, 30, 34, 38, 38, 44, 46, 50], w: [3, 4, 5, 5, 6, 7, 7, 9, 10, 11], dmg: [0.22, 0.28, 0.34, 0.36, 0.42, 0.48, 0.5, 0.58, 0.64, 0.7], turn: [0.24, 0.26, 0.28, 0.3, 0.32, 0.34, 0.36, 0.38, 0.4, 0.42] },
 };
-const MAXLV = 8;
+const MAXLV = 10, THR_LV = 8;   // v2.8: LV9/LV10; threat maxes at LV8, LV10 = DANGER x3
+function danger() { return G.wlv >= MAXLV && G.scene !== 'title' ? 3 : 1; }
 // v2.2: per-weapon damage vs bosses so every weapon takes a similar time (measured with the bot)
-const BOSS_WK = { V: [1, 1, 1, 1, 1, 1, 1, 1], R: [0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.55], B: [0.42, 0.42, 0.4, 0.4, 0.38, 0.38, 0.38, 0.38], P: [5, 4.4, 3.8, 3.2, 2.6, 2.0, 1.6, 1.2] };
-function bossWpnK() { const a = BOSS_WK[G.weapon]; return a ? a[clamp(G.wlv, 1, 8) - 1] : 1; }
+const BOSS_WK = { V: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1], R: [0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.55], B: [0.42, 0.42, 0.4, 0.4, 0.38, 0.38, 0.38, 0.38, 0.38, 0.38], P: [5, 4.4, 3.8, 3.2, 2.6, 2.0, 1.6, 1.2, 1.1, 1.0] };
+function bossWpnK() { const a = BOSS_WK[G.weapon]; return a ? a[clamp(G.wlv, 1, MAXLV) - 1] : 1; }
 let ORB_FRAC = 0.25;   // same-colour orb = half a level of chips
-function chipNeed(lv) { return CHIP_A + lv * CHIP_B; }
+function chipNeed(lv) { return Math.round((CHIP_A + lv * CHIP_B) * (lv >= THR_LV ? 0.62 : 1)); }   // LV8->10 ~2.5 min more
 let CHIP_A = 30, CHIP_B = 40;   // v2.2: ~7 min to LV8
 function bounds() { const m = G.stage === 3 ? G.wallW : 0; return { l: m + 8, r: W - m - 8 }; }
 
@@ -952,12 +953,13 @@ function nearestTarget(x, y) {
 }
 // ---- enemy bullets ----
 function eb(x, y, ang, spd, k) {
-  const b = ebul.get(); if (!b) return null; spd *= G.bs * (1 + 0.3 * thr());
+  if (ebul.count >= EB_CAP && danger() > 1) return null; const b = ebul.get(); if (!b) return null; spd *= G.bs * (1 + 0.3 * thr());   // speed NOT tripled in danger
   b.x = x; b.y = y; b.vx = Math.cos(ang) * spd; b.vy = Math.sin(ang) * spd; b.ax = 0; b.ay = 0; b.k = k || 0; b.life = 0; b.home = 0; b.turn = 0; b.spd = spd; return b;
 }
 function aimA(x, y) { return Math.atan2(pl.y - y, pl.x - x); }
-function fan(x, y, a, n, spread, spd, k) { if (n > 1) { const m = Math.round(n * (1 + 0.6 * thr())); spread *= 1 + 0.35 * thr(); n = m; } for (let i = 0; i < n; i++) { const t = n === 1 ? 0 : i / (n - 1) - 0.5; eb(x, y, a + t * spread, spd, k); } }
-function ring(x, y, n, spd, k, off) { n = Math.round(n * (1 + 0.6 * thr())); for (let i = 0; i < n; i++) eb(x, y, (off || 0) + i * TAU / n, spd, k); }
+let EB_CAP = 520;
+function fan(x, y, a, n, spread, spd, k) { if (n > 1) { const m = Math.round(n * (1 + 0.6 * thr()) * (danger() > 1 ? 1.75 : 1)); spread *= 1 + 0.35 * thr(); n = m; } for (let i = 0; i < n; i++) { const t = n === 1 ? 0 : i / (n - 1) - 0.5; eb(x, y, a + t * spread, spd, k); } }
+function ring(x, y, n, spd, k, off) { n = Math.round(n * (1 + 0.6 * thr()) * (danger() > 1 ? 1.75 : 1)); for (let i = 0; i < n; i++) eb(x, y, (off || 0) + i * TAU / n, spd, k); }
 function updBullets() {
   const a = ebul.items;
   for (let i = 0; i < a.length; i++) {
@@ -1087,7 +1089,7 @@ function drawItems() {
 }
 function levelUp(it) {
   const ty = G.weapon, wc = WPN[ty].col;
-  if (G.wlv < MAXLV) { G.wlv++; Snd.sfx('power'); UI.toast(WPN[ty].name + ' LV' + G.wlv + (G.wlv === MAXLV ? ' MAX' : ''), wc); part(3, pl.x, pl.y, 0, 0, 24, 40, wc); sparks(pl.x, pl.y, 16, wc, 3.5, 18); G.lvFlash = 40; }
+  if (G.wlv < MAXLV) { G.wlv++; Snd.sfx('power'); UI.toast(WPN[ty].name + ' LV' + G.wlv + (G.wlv === MAXLV ? ' MAX' : ''), wc); if (G.wlv === MAXLV) { G.dangerT = 210; G.shake = Math.max(G.shake, 10); Snd.sfx('expL'); }; part(3, pl.x, pl.y, 0, 0, 24, 40, wc); sparks(pl.x, pl.y, 16, wc, 3.5, 18); G.lvFlash = 40; }
   else { addScore(5000, it.x, it.y); Snd.sfx('pickup'); UI.toast('MAX BONUS 5000', wc); }
 }
 // ---- scoring ----
@@ -1117,7 +1119,7 @@ function killPlayer() {
   G.mult = 1; G.medal = 500; G.lives--;
   const drop = G.weapon;
   if (Opts.penalty === 'reset') { G.weapon = 'V'; G.wlv = 1; } else G.wlv = Math.max(1, G.wlv - 1); G.chips = 0;
-  G.thr = Math.max(0, thrTarget() - 1 / (MAXLV - 1));   // after blowing up: difficulty falls to below the new level, then ramps back
+  G.thr = Math.max(0, thrTarget() - 1 / (THR_LV - 1));   // after blowing up: difficulty falls to below the new level, then ramps back
   if (drop !== 'V') dropItem(drop, pl.x, Math.min(pl.y, H * 0.6));
 }
 function doBomb() {
@@ -1238,6 +1240,7 @@ function drawPlayer() {
   const fi = pl.bank < -0.35 ? 0 : pl.bank > 0.35 ? 2 : 1; blit(PLAYER_SPR[fi], pl.x, pl.y);
   if ((G.t >> 4) & 1) { ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(glow('#ff4040'), pl.x - 16, pl.y + 2, 6, 6); ctx.drawImage(glow('#40ff80'), pl.x + 10, pl.y + 2, 6, 6); ctx.globalCompositeOperation = 'source-over'; }
   // weapon state glow ring on the canopy area
+  if (G.wlv >= 9 && pl.alive) { ctx.globalCompositeOperation = 'lighter'; const k = G.wlv - 8, r = 14 + 6 * k + Math.sin(G.t * 0.25) * 3; ctx.globalAlpha = 0.25 * k; ctx.drawImage(glow(G.wlv >= MAXLV ? '#ff3040' : '#ffffff'), pl.x - r, pl.y - r, r * 2, r * 2); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }   // v2.8 overdrive aura
   if (G.weapon !== 'V') { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5 + 0.1 * G.wlv; const r = 4 + G.wlv; ctx.drawImage(glow(WPN[G.weapon].col), pl.x - r, pl.y + 2 - r, r * 2, r * 2); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
   // hitbox dot: always visible, larger/brighter when focused
   const hr = pl.focus ? 3 : 2;
@@ -1700,7 +1703,7 @@ function spawnE(kind, x, y, mv, o) {
   const e = enemies.get(); if (!e) return null; resetE(e, kind); e.x = x; e.y = y; e.mv = mv || 'lin';
   if (o) for (const k in o) e[k] = o[k];
   if (e.elite) { e.pal = 'elite'; e.hp *= 1.7; e.score = Math.round(e.score * 1.6); }
-  if (kind !== 'barrier' && kind !== 'missile') e.hp *= 1 + 1.3 * thr(); e.max = e.hp; e.spr = (kind === 'barrier') ? null : getSpr(kind, e.pal);
+  if (kind !== 'barrier' && kind !== 'missile') e.hp *= (1 + 1.3 * thr()) * danger(); e.max = e.hp; e.spr = (kind === 'barrier') ? null : getSpr(kind, e.pal);
   if (!e.noStat && kind !== 'mine' && kind !== 'missile' && kind !== 'barrier') G.stats.spawned++;
   return e;
 }
@@ -1711,9 +1714,9 @@ const LZ_WARN = 54, LZ_ON = 80;
 function bigLaser(e) {
   if (e.lzT === undefined || e.t === 1) e.lzT = 100 + ((e.x * 7) | 0) % 80;
   if (--e.lzT > 0) return;
-  e.lzT = Math.round((330 - 120 * thr()) * fr(0.85, 1.2));
+  e.lzT = Math.round((330 - 120 * thr()) * fr(0.85, 1.2) / danger());
   if (!canFire(e) || e.y > H * 0.45) { e.lzT = 40; return; }
-  let n = 0; for (const l of lasers.items) if (l.alive && l.big) n++; if (n >= 2) { e.lzT = 50; return; }
+  let n = 0; for (const l of lasers.items) if (l.alive && l.big) n++; if (n >= (danger() > 1 ? 3 : 2)) { e.lzT = 50; return; }
   const [w, len] = BIG_LZ[e.kind], oy = (e.hh || e.r) * 0.7, a0 = aimA(e.x, e.y + oy), ang = clamp(a0 + (rnd() < 0.5 ? -1 : 1) * 0.22, 0.35, Math.PI - 0.35);
   const l = laser(e.x, e.y + oy, ang, len, w, LZ_WARN, LZ_ON, e, '#ff8a1a'); if (!l) return;
   l.big = 1; l.follow = 1; l.sw = clamp(angWrap(a0 - ang), -0.35, 0.35) / LZ_ON * 1.6;   // sweeps across the player's position
@@ -1730,7 +1733,7 @@ function updEnemies() {
     if (e.big >= 1 && e.hp < e.hpM * 0.5 && (G.t + i * 7) % (e.hp < e.hpM * 0.25 ? 4 : 9) === 0) { const ox = fr(-e.r, e.r) * 0.6, oy = fr(-e.r, e.r) * 0.5; part(2, e.x + ox, e.y + oy, fr(-0.2, 0.2), -0.6, 34, fr(4, 7), ''); if (G.t & 8) sparks(e.x + ox, e.y + oy, 1, '#ffb050', 2, 8); }
     if (e.gun && e.shots > 0) {
       if (e.burst > 0) { if (--e.bt <= 0) { gunShot(e); e.burst--; e.bt = 5; } }
-      else if (canFire(e) || e.gt > TELE) { if (--e.gt <= 0) { fireGun(e); e.gt = e.gi; e.shots--; } }
+      else if (canFire(e) || e.gt > TELE) { if (--e.gt <= 0) { fireGun(e); e.gt = danger() > 1 ? Math.max(6, Math.round(e.gi / 1.7)) : e.gi; e.shots--; } }
     }
     const m = e.big >= 2 ? 120 : 50;
     if (e.y > H + m || (e.y < -160 && e.t > 200) || e.x < -m - 20 || e.x > W + m + 20) enemies.kill(e);
@@ -1882,12 +1885,12 @@ function buildTimeline(si) {
   tl.push([end, 'BOSS']); tl.sort((a, b) => a[0] - b[0]); return tl;
 }
 // ---- dynamic difficulty: threat follows weapon level (LV1 = 0 = original game), rises slowly, drops at once on death ----
-function thrTarget() { return clamp((G.wlv - 1) / (MAXLV - 1), 0, 1); }
+function thrTarget() { return clamp((G.wlv - 1) / (THR_LV - 1), 0, 1); }
 function updThreat() {
   const t = thrTarget(); if (G.thr == null) G.thr = 0;
-  if (G.thr < t) G.thr = Math.min(t, G.thr + 1 / (60 * 8 * (MAXLV - 1))); else G.thr = t;   // ~8 s per level to ramp up
+  if (G.thr < t) G.thr = Math.min(t, G.thr + 1 / (60 * 8 * (THR_LV - 1))); else G.thr = t;   // ~8 s per level to ramp up
   if (G.phase === 'waves' && G.thr > 0.12) {                                          // extra waves = higher spawn rate
-    G.xwT = (G.xwT || 0) + G.thr; const gap = 60 * (16 - 9 * G.thr);
+    G.xwT = (G.xwT || 0) + G.thr; const gap = 60 * (16 - 9 * G.thr) / danger();
     if (G.xwT >= gap) { G.xwT = 0; const pool = ['line', 'sine', 'vdive', 'formation', 'interceptors', 'swarm', 'circle']; WAVES[pool[ri(0, pool.length - 1)]](stageL()); G.xWaves = (G.xWaves || 0) + 1; }
   }
 }
@@ -1965,7 +1968,7 @@ function spawnBoss(id, mid) {
 let BOSS_BASE = 0.32, BOSS_K = 4.0; const BOSS_ADJ = [0.9, 1, 1, 1, 0.42];   // v2.2: bosses ~45-90 s at LV1-4, ~60-120 s at LV8
 function addPart(b, o) {
   const p = { isPart: true, boss: b, alive: true, tgt: true, solid: false, armor: 1, hp: 100, r: 10, hw: 0, hh: 0, ox: 0, oy: 0, x: b.x, y: b.y, flash: 0, shield: 0, smax: 0, sflash: 0, big: 2, bar: true, spr: null, fixed: false, core: false, score: 2000, tag: '', tn: 99, turret: false, ang: Math.PI / 2, i: 0 };
-  for (const k in o) p[k] = o[k]; if (p.hp < 1e8) { const f = BOSS_BASE * (BOSS_ADJ[G.stage] || 1) * (1 + BOSS_K * thr()); p.hp *= f; p.shield *= f; } p.max = p.hp; p.smax = p.shield; if (!p.tgt) p.bar = false; b.parts.push(p); return p;
+  for (const k in o) p[k] = o[k]; if (p.hp < 1e8) { const f = BOSS_BASE * (BOSS_ADJ[G.stage] || 1) * (1 + BOSS_K * thr()) * danger(); p.hp *= f; p.shield *= f; } p.max = p.hp; p.smax = p.shield; if (!p.tgt) p.bar = false; b.parts.push(p); return p;
 }
 function nAlive(b, tag) { let n = 0; for (const p of b.parts) if (p.alive && p.tag === tag) n++; return n; }
 function ev(b, n, o, p) { const k = (b.pt + (o || 0)) % n; if (p) p.tn = Math.min(p.tn, n - k); return k === 0; }
@@ -2193,7 +2196,7 @@ const UI = {
 const BOMB_BTN = { x: W - 30, y: H - 52, r: 21 };
 function newStats() { return { kills: 0, spawned: 0, deaths: 0, bombs: 0, items: 0, bosses: 0 }; }
 function newGame(stage) {
-  G.score = 0; G.lives = 2; G.bombs = 3; G.credits = 3; G.continues = 0; G.weapon = 'V'; G.wlv = 1; G.chips = 0; G.playT = 0; G.shipKills = 0; G.thr = 0; G.shield = 3; G.shieldFx = 0; G.shieldDropAt = 0; G.shieldDrops = 0; G.shieldHits = 0; G.mult = 1; G.medal = 500; G.nextExt = 0; G.deaths = 0;
+  G.score = 0; G.lives = 2; G.bombs = 3; G.credits = 3; G.continues = 0; G.weapon = 'V'; G.wlv = 1; G.chips = 0; G.playT = 0; G.shipKills = 0; G.thr = 0; G.dangerT = 0; G.shield = 3; G.shieldFx = 0; G.shieldDropAt = 0; G.shieldDrops = 0; G.shieldHits = 0; G.mult = 1; G.medal = 500; G.nextExt = 0; G.deaths = 0;
   G.tot = newStats(); playerReset(true); startStage(stage || 0); G.scene = 'play';
 }
 // ---- v2.4 save / continue (localStorage). Resume point: the same wave time in the same stage (bosses restart from their warning) ----
@@ -2322,7 +2325,7 @@ function updPlay() {
   G.scrollPos += G.scrollV; G.playT = (G.playT || 0) + 1;
   updPlayer(); if (G.scene !== 'play') return;
   updShots(); updEnemies(); updBoss(); updBullets(); updLasers(); updItems(); updBomb(); collide(); updParticles();
-  if (G.lvFlash > 0) G.lvFlash--;
+  if (G.lvFlash > 0) G.lvFlash--; if (G.dangerT > 0) G.dangerT--;
   updThreat();
   G.multIdle++; if (G.multIdle > 150 && G.mult > 1) G.mult = Math.max(1, G.mult - 0.004);
   if (G.shake > 0) G.shake = G.shake < 0.3 ? 0 : G.shake * 0.88; if (G.flash > 0) G.flash--;
@@ -2365,7 +2368,9 @@ function renderHUD() {
   const m = Math.floor(G.mult * 10) / 10, mc = m >= 6 ? '#ff4a6a' : m >= 3 ? '#ffb040' : m > 1 ? '#ffe880' : '#a0a8c0';
   text('X' + m.toFixed(1), 4, 12, mc, 1); const dec = clamp(1 - G.multIdle / 150, 0, 1); if (m > 1) { R(ctx, 30, 13, 30, 4, '#202434'); R(ctx, 30, 13, Math.round(30 * dec), 4, mc); }
   if (Input.touchMode || true) { R(ctx, W - 22, 3, 3, 10, '#c0c8e0'); R(ctx, W - 16, 3, 3, 10, '#c0c8e0'); }
-  { const th = thr(), n = Math.round(th * 7) + 1, col = th < 0.35 ? '#70e090' : th < 0.7 ? '#ffc040' : '#ff4a5a'; ctx.globalAlpha = 0.7; text('THREAT', 4, 21, '#808aa8', 1);
+  if (danger() > 1) { const p = 0.55 + 0.45 * Math.sin(G.t * 0.2); ctx.globalAlpha = 1; text('DANGER x3', 4, 21, p > 0.6 ? '#ff3040' : '#ff9090', 1); for (let i = 0; i < 8; i++) R(ctx, 62 + i * 5, 21, 3, 7, (i + (G.t >> 2)) % 8 < 6 ? '#ff2030' : '#ffffff');
+    ctx.globalAlpha = 0.18 * p; ctx.fillStyle = '#ff0020'; ctx.fillRect(0, 0, W, 3); ctx.fillRect(0, H - 3, W, 3); ctx.fillRect(0, 0, 3, H); ctx.fillRect(W - 3, 0, 3, H); ctx.globalAlpha = 1; }
+  else { const th = thr(), n = Math.round(th * 7) + 1, col = th < 0.35 ? '#70e090' : th < 0.7 ? '#ffc040' : '#ff4a5a'; ctx.globalAlpha = 0.7; text('THREAT', 4, 21, '#808aa8', 1);
     for (let i = 0; i < 8; i++) R(ctx, 42 + i * 5, 22 + (i < n ? 0 : 2), 3, i < n ? 5 : 3, i < n ? col : '#2a2e40'); ctx.globalAlpha = 1; }
   // lives + bombs (top right row 2)
   for (let i = 0; i < Math.min(6, Math.max(0, G.lives)); i++) { ctx.drawImage(PLAYER_SPR[1], W - 34 - i * 9, 12, 8, 9); }
@@ -2375,9 +2380,11 @@ function renderHUD() {
   const w = G.weapon, wc = WPN[w].col; ctx.fillStyle = 'rgba(0,0,10,0.6)'; ctx.fillRect(2, H - 22, 104, 20); R(ctx, 2, H - 22, 104, 1, wc);
   R(ctx, 4, H - 14, 10, 10, wc); text(w === 'V' ? 'V' : w === 'R' ? 'S' : w === 'B' ? 'L' : 'H', 7, H - 13, '#000', 1, 'l', false);
   text(WPN[w].name, 18, H - 13, wc, 1); text('LV' + G.wlv, 66, H - 13, G.wlv === MAXLV ? ((G.t >> 3) & 1 ? '#ffffff' : wc) : '#ffffff', 1);
-  for (let i = 0; i < MAXLV; i++) R(ctx, 4 + i * 12, H - 20, 10, 3, i < G.wlv ? wc : '#303448');
-  { const need = chipNeed(G.wlv), f = G.wlv >= MAXLV ? 1 : clamp((G.chips || 0) / need, 0, 1); R(ctx, 86, H - 13, 18, 7, '#202434'); R(ctx, 86, H - 13, Math.round(18 * f), 7, '#ff9a20'); }
-  if (G.lvFlash > 0) { ctx.globalAlpha = G.lvFlash / 40; text('POWER UP!', W / 2, 96, wc, 2, 'c'); ctx.globalAlpha = 1; }
+  for (let i = 0; i < MAXLV; i++) R(ctx, 4 + i * 10, H - 20, 8, 3, i < G.wlv ? (i >= 8 ? ((G.t >> 3) & 1 ? '#ffffff' : '#ff4040') : wc) : '#303448');
+  { const need = chipNeed(G.wlv), f = G.wlv >= MAXLV ? 1 : clamp((G.chips || 0) / need, 0, 1); R(ctx, 92, H - 13, 12, 7, '#202434'); R(ctx, 92, H - 13, Math.round(12 * f), 7, '#ff9a20'); }
+  if (G.dangerT > 0) { const k = G.dangerT, a = Math.min(1, k / 30, (210 - k) / 15), on = (k >> 3) & 1; ctx.globalAlpha = a; R(ctx, 0, H / 2 - 50, W, 74, 'rgba(70,0,12,0.72)'); R(ctx, 0, H / 2 - 50, W, 2, '#ff3040'); R(ctx, 0, H / 2 + 22, W, 2, '#ff3040');
+    text('MAX POWER', W / 2, H / 2 - 38, '#ffffff', 2, 'c'); text('DANGER x3', W / 2, H / 2 - 8, on ? '#ff3040' : '#ffb0b0', 3, 'c'); ctx.globalAlpha = 1; }
+  if (G.lvFlash > 0 && !(G.dangerT > 0)) { ctx.globalAlpha = G.lvFlash / 40; text('POWER UP!', W / 2, 96, wc, 2, 'c'); ctx.globalAlpha = 1; }
   // bombs bottom
   for (let i = 0; i < G.bombs; i++) blit(ITEM_SPR.bomb, 116 + i * 11, H - 10);
   if (G.boss && !G.boss.mid || (G.boss && G.boss.mid)) { const b = G.boss, f = bossBar(b); text(b.name, W / 2, 24, b.mid ? '#ffb0b0' : '#ff6080', 1, 'c'); R(ctx, 30, 33, W - 60, 5, '#2a1020'); R(ctx, 30, 33, Math.round((W - 60) * f), 5, b.mid ? '#ff9080' : '#ff3a6a'); R(ctx, 30, 33, Math.round((W - 60) * f), 1, '#ffc0d0'); }
