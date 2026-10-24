@@ -1325,12 +1325,14 @@ function drawPlasma() {
 
 // ===== STRIKE city: endless cyberpunk megacity seen from far above, parallax clouds, day -> night at 4:00 =====
 const CITY = { TH: 640, seed: -1, far: null, farN: null, tow: null, towN: null, cl1: null, cl1N: null, cl2: null, cl2N: null, streets: [], cars: [], beacons: [], neons: [], vehicles: [] };
-const NEON = ['#ff3ab0', '#30f0ff', '#ffe040', '#a050ff', '#40ff90', '#ff6a30'];
-const NIGHT_AT = 240, DUSK_FROM = 120;   // seconds of play time
-function playSec() { return G.scene === 'title' || G.scene === 'scores' || G.scene === 'entry' ? 215 + Math.sin(G.t * 0.004) * 25 : (G.playT || 0) / 60; }
-function nightK() { return smooth(DUSK_FROM + 40, NIGHT_AT, playSec()); }
-function duskK() { const s = playSec(); return smooth(DUSK_FROM - 20, DUSK_FROM + 60, s) * (1 - smooth(NIGHT_AT - 50, NIGHT_AT, s)); }
+const NEON = ['#ff3ab0', '#30f0ff', '#a050ff', '#ff40ff', '#4a8aff', '#30c8ff'];   // pink/cyan/purple only: enemy bullets are warm yellow/orange/lime
+const NIGHT_AT = 120, DUSK_FROM = 95, DAWN_FROM = 215, DAY_CYCLE = 240;   // v2.6: day 0:00, dusk 1:35-2:00, night 2:00-3:35, dawn 3:35-4:00, then repeats every 4 min
+function playSec() { return G.scene === 'title' || G.scene === 'scores' || G.scene === 'entry' ? 160 + Math.sin(G.t * 0.004) * 20 : (G.playT || 0) / 60; }
+function cycSec() { const s = playSec(); return ((s % DAY_CYCLE) + DAY_CYCLE) % DAY_CYCLE; }
+function nightK() { const p = cycSec(); return smooth(DUSK_FROM, NIGHT_AT, p) * (1 - smooth(DAWN_FROM, DAY_CYCLE, p)); }
+function duskK() { const p = cycSec(), bell = (a, b) => { const k = clamp((p - a) / (b - a), 0, 1); return Math.sin(k * Math.PI); }; return Math.max(bell(DUSK_FROM - 15, NIGHT_AT), 0.8 * bell(DAWN_FROM - 5, DAY_CYCLE)); }
 function wrapDraw(fn, y, h, TH) { fn(y); if (y + h > TH) fn(y - TH); if (y < 0) fn(y + TH); }
+const DAYLOW = [[150, 136, 116], [104, 132, 140], [146, 106, 92], [160, 164, 172], [96, 112, 142], [124, 130, 104], [128, 110, 134], [156, 148, 132]];
 function genFar(night, seedv) {
   const TH = CITY.TH, c = mkC(W, TH), x = c.getContext('2d'), r = lcg(seedv);
   R(x, 0, 0, W, TH, night ? '#070912' : '#566075');
@@ -1341,52 +1343,105 @@ function genFar(night, seedv) {
   ys.push(TH);
   for (let i = 0; i < ys.length - 1; i++) for (let j = 0; j < xs.length - 1; j++) {
     const bx = xs[j] + 3, by = ys[i] + 3, bw = xs[j + 1] - xs[j] - 3, bh = ys[i + 1] - ys[i] - 3; if (bw < 4 || bh < 4) continue;
-    const park = r() < 0.07;
+    const park = r() < 0.12;
     if (park) { R(x, bx, by, bw, bh, night ? '#0b1914' : '#3d6648'); for (let k = 0; k < 6; k++) C(x, bx + r() * bw, by + r() * bh, 2 + r() * 3, night ? '#0e2219' : '#2f5a3a'); if (night) for (let k = 0; k < 3; k++) R(x, bx + r() * bw, by + r() * bh, 1, 1, '#c0ffd0'); continue; }
     // subdivide block into low rooftops
     let yy = by; while (yy < by + bh - 2) { const hh = Math.min(by + bh - yy, 4 + ((r() * 16) | 0)); let xx = bx;
       while (xx < bx + bw - 2) { const ww = Math.min(bx + bw - xx, 4 + ((r() * 18) | 0)), tone = ((r() * 50) | 0) - 15, hue = r();
         if (night) { R(x, xx, yy, ww - 1, hh - 1, `rgb(${16 + tone / 3},${18 + tone / 3},${32 + tone / 2})`); for (let q = 0; q < ww * hh / 9; q++) if (r() < 0.2) R(x, xx + ((r() * (ww - 1)) | 0), yy + ((r() * (hh - 1)) | 0), 1, 1, r() < 0.6 ? '#ffd890' : r() < 0.6 ? '#7ae0ff' : '#ff80d0'); }
-        else { R(x, xx, yy, ww - 1, hh - 1, hue < 0.12 ? `rgb(${130 + tone},${100 + tone},${90 + tone})` : hue < 0.2 ? `rgb(${80 + tone},${110 + tone},${120 + tone})` : `rgb(${110 + tone},${114 + tone},${126 + tone})`); R(x, xx, yy, ww - 1, 1, `rgb(${150 + tone},${154 + tone},${164 + tone})`); R(x, xx + ww - 2, yy + 1, 1, hh - 2, 'rgba(20,24,40,0.35)'); if (r() < 0.3) R(x, xx + 1, yy + 1, 2, 2, '#8a8e98'); }
+        else { const P = DAYLOW[(hue * DAYLOW.length) | 0]; R(x, xx, yy, ww - 1, hh - 1, `rgb(${P[0] + tone},${P[1] + tone},${P[2] + tone})`); R(x, xx, yy, ww - 1, 1, `rgba(255,255,255,0.18)`); if (r() < 0.25) R(x, xx + 1, yy + 1, 2, 2, r() < 0.5 ? '#4a8a52' : '#8a96a6'); }
         xx += ww; }
       yy += hh; }
   }
   // streets
-  for (const y of ys) { if (y >= TH) continue; R(x, 0, y, W, 3, night ? '#020308' : '#343a48'); streets.push([0, y + 1.5]); if (night) { x.globalAlpha = 0.5; R(x, 0, y + 1, W, 1, '#ff9a40'); x.globalAlpha = 1; } else for (let k = 0; k < W; k += 6) R(x, k, y + 1, 3, 1, '#9096a4'); }
-  for (const X of xs) { if (X >= W) continue; R(x, X, 0, 3, TH, night ? '#020308' : '#343a48'); streets.push([1, X + 1.5]); if (night) { x.globalAlpha = 0.45; R(x, X + 1, 0, 1, TH, '#ffe0a0'); x.globalAlpha = 1; } }
+  for (const y of ys) { if (y >= TH) continue; R(x, 0, y, W, 3, night ? '#020308' : '#343a48'); streets.push([0, y + 1.5]); if (night) { x.globalAlpha = 0.5; R(x, 0, y + 1, W, 1, r() < 0.5 ? '#ff3ab0' : '#30f0ff'); x.globalAlpha = 1; } else for (let k = 0; k < W; k += 6) R(x, k, y + 1, 3, 1, '#9096a4'); }
+  for (const X of xs) { if (X >= W) continue; R(x, X, 0, 3, TH, night ? '#020308' : '#343a48'); streets.push([1, X + 1.5]); if (night) { x.globalAlpha = 0.45; R(x, X + 1, 0, 1, TH, r() < 0.5 ? '#a050ff' : '#30c8ff'); x.globalAlpha = 1; } }
   return { c, streets };
 }
-function genTowers(night, seedv) {
+const ROOFS = [[196, 182, 154], [140, 178, 184], [186, 138, 110], [214, 218, 226], [120, 140, 176], [166, 170, 140], [158, 128, 162], [205, 196, 180]];
+function genTowers(night, seedv) {   // v2.6: varied towers (setbacks, spires, helipads, gardens, solar, crowns), elevated rails, billboards
   const TH = CITY.TH, c = mkC(W, TH), x = c.getContext('2d'), r = lcg(seedv), list = [];
-  for (let i = 0; i < 30; i++) { const w = 14 + ((r() * 30) | 0), h = 14 + ((r() * 26) | 0); list.push({ x: (r() * (W + 20) - 10) | 0, y: (r() * TH) | 0, w, h, fh: 10 + ((r() * 26) | 0), tone: (r() * 40) | 0, neon: NEON[(r() * NEON.length) | 0], kind: (r() * 6) | 0, s: r() }); }
+  const rails = [58 + ((r() * 20) | 0), 186 + ((r() * 20) | 0)];
+  for (let i = 0; i < 44; i++) { const w = 12 + ((r() * 30) | 0), h = 12 + ((r() * 26) | 0); let tx = (r() * (W + 20) - 10) | 0;
+    for (const rx of rails) if (tx < rx + 5 && tx + w > rx - 5) tx = tx + w / 2 < rx ? rx - 6 - w : rx + 6;   // keep the rail corridors clear
+    list.push({ x: tx, y: (r() * TH) | 0, w, h, fh: 8 + ((r() * 28) | 0), tone: (r() * 30) | 0, roof: ROOFS[(r() * ROOFS.length) | 0], neon: NEON[(r() * NEON.length) | 0], kind: (r() * 9) | 0, s: r(), bb: r() < 0.3, kj: r() < 0.35 }); }
   list.sort((a, b) => a.y - b.y);
-  const beacons = [], neons = [];
+  // elevated rail viaducts (trains are drawn live on top)
+  for (const rx of rails) { R(x, rx - 3, 0, 6, TH, night ? '#0a0c16' : '#5a5e6a'); R(x, rx - 2, 0, 1, TH, night ? '#20243a' : '#9a9ea8'); R(x, rx + 1, 0, 1, TH, night ? '#20243a' : '#9a9ea8');
+    for (let y = 0; y < TH; y += 24) { R(x, rx - 5, y, 10, 3, night ? '#14182a' : '#70747e'); x.fillStyle = 'rgba(10,14,30,0.3)'; if (!night) x.fillRect(rx + 3, y + 2, 6, 3); } }
+  const beacons = [], neons = [], towers = [];
   for (const t of list) wrapDraw(yy => {
-    const X = t.x, Y = yy, w = t.w, h = t.h, fh = t.fh, rs = lcg(((t.s * 1e6) | 0) + 7);
-    // cast shadow (day) / glow pool (night)
+    const X = t.x, Y = yy, w = t.w, h = t.h, fh = t.fh, rs = lcg(((t.s * 1e6) | 0) + 7), [rr, rg, rb] = t.roof, tn = t.tone - 15;
+    const day = (k, d) => `rgb(${(rr + tn) * k + d | 0},${(rg + tn) * k + d | 0},${(rb + tn) * k + d | 0})`;
     if (!night) { x.fillStyle = 'rgba(10,14,30,0.32)'; x.beginPath(); x.moveTo(X + w, Y); x.lineTo(X + w + fh * 0.9, Y + fh * 0.5); x.lineTo(X + w + fh * 0.9, Y + h + fh + fh * 0.5); x.lineTo(X + w, Y + h + fh); x.fill(); }
-    
-    // south face with window grid
-    R(x, X, Y + h, w, fh, night ? '#0b0d1a' : `rgb(${60 + t.tone},${70 + t.tone},${92 + t.tone})`);
+    // south face: glass curtain wall with window rows (day: tinted glass + mullions, night: lit windows)
+    R(x, X, Y + h, w, fh, night ? '#0b0d1a' : day(0.5, 0));
+    if (!night) { x.globalAlpha = 0.25; R(x, X, Y + h, w, fh * 0.4, '#e8f4ff'); x.globalAlpha = 1; }
     for (let wy = Y + h + 2; wy < Y + h + fh - 1; wy += 3) for (let wx = X + 1; wx < X + w - 1; wx += 2) {
-      if (night) { if (rs() < 0.5) R(x, wx, wy, 1, 1, rs() < 0.7 ? '#ffe2a0' : '#80e8ff'); } else R(x, wx, wy, 1, 1, rs() < 0.25 ? '#c8e4ff' : 'rgba(30,44,70,0.6)');
+      if (night) { if (rs() < 0.5) R(x, wx, wy, 1, 1, rs() < 0.7 ? '#ffe2a0' : '#80e8ff'); } else R(x, wx, wy, 1, 1, rs() < 0.22 ? '#d8ecff' : 'rgba(30,44,70,0.55)');
     }
     R(x, X, Y + h + fh - 1, w, 1, night ? '#05060c' : 'rgba(20,24,40,0.5)');
-    // neon sign on face
-    if (t.kind < 3 && fh > 14) { const sw = Math.min(w - 4, 6 + ((rs() * 10) | 0)), sx = X + 2 + ((rs() * (w - sw - 3)) | 0), sy = Y + h + 3; R(x, sx, sy, sw, 4, night ? t.neon : 'rgba(40,40,60,0.8)'); if (night) { R(x, sx + 1, sy + 1, sw - 2, 2, '#ffffff'); } else R(x, sx + 1, sy + 1, sw - 2, 2, t.neon); if (yy === t.y) neons.push([sx + sw / 2, sy + 2, t.neon, sw]); }
     // roof
-    const rt = night ? `rgb(${22 + t.tone / 4},${24 + t.tone / 4},${40 + t.tone / 3})` : `rgb(${150 + t.tone},${154 + t.tone},${166 + t.tone})`;
-    R(x, X, Y, w, h, rt); R(x, X, Y, w, 1, night ? '#3a4060' : '#e4e8f0'); R(x, X, Y, 1, h, night ? '#2a3050' : '#d0d6e2');
-    R(x, X + w - 1, Y, 1, h, night ? '#0a0c18' : 'rgba(40,46,70,0.6)');
-    if (night) { x.globalAlpha = 0.85; x.strokeStyle = t.neon; x.lineWidth = 1; x.strokeRect(X + 1.5, Y + 1.5, w - 3, h - 3); x.globalAlpha = 1; }
-    else { x.globalAlpha = 0.5; x.strokeStyle = t.neon; x.strokeRect(X + 1.5, Y + 1.5, w - 3, h - 3); x.globalAlpha = 1; }
-    if (t.kind === 0) { C(x, X + w / 2, Y + h / 2, Math.min(w, h) / 3, night ? '#1a2238' : '#6a7080'); x.strokeStyle = night ? '#ffe040' : '#f0f0f0'; x.beginPath(); x.arc(X + w / 2, Y + h / 2, Math.min(w, h) / 3 - 1, 0, TAU); x.stroke(); R(x, X + w / 2 - 2, Y + h / 2 - 2, 1, 4, night ? '#ffe040' : '#fff'); R(x, X + w / 2 + 1, Y + h / 2 - 2, 1, 4, night ? '#ffe040' : '#fff'); R(x, X + w / 2 - 1, Y + h / 2, 2, 1, night ? '#ffe040' : '#fff'); }
-    else if (t.kind === 1) { R(x, X + 3, Y + 3, w - 6, h - 6, night ? '#0e2a20' : '#4a8058'); for (let k = 0; k < 4; k++) C(x, X + 4 + rs() * (w - 8), Y + 4 + rs() * (h - 8), 2, night ? '#16402c' : '#3a6a44'); }
-    else { for (let k = 0; k < 3 + t.kind; k++) { const ax = X + 3 + rs() * (w - 8), ay = Y + 3 + rs() * (h - 7); R(x, ax, ay, 4, 3, night ? '#2a3048' : '#9aa0ae'); R(x, ax, ay, 4, 1, night ? '#3a4260' : '#c8ccd6'); } }
-    // antenna mast + beacon
-    if (t.kind >= 3) { const ax = X + 3 + ((rs() * (w - 6)) | 0), ay = Y + 3 + ((rs() * (h - 6)) | 0); R(x, ax, ay - 6, 1, 7, night ? '#4a5070' : '#606878'); if (yy === t.y) beacons.push([ax + 0.5, ay - 6]); }
+    const rt = night ? `rgb(${18 + t.tone / 4},${20 + t.tone / 4},${34 + t.tone / 3})` : day(1, 0);
+    R(x, X, Y, w, h, rt); R(x, X, Y, w, 1, night ? '#30364e' : day(1, 40)); R(x, X, Y, 1, h, night ? '#262c44' : day(1, 25)); R(x, X + w - 1, Y, 1, h, night ? '#0a0c18' : 'rgba(40,46,70,0.6)');
+    R(x, X + 1, Y + h - 1, w - 2, 1, night ? '#0a0c18' : day(0.75, 0));
+    const cx = X + w / 2, cy = Y + h / 2, m = Math.min(w, h);
+    switch (t.kind) {
+      case 0: C(x, cx, cy, m / 3, night ? '#1a2238' : '#5a6070'); x.strokeStyle = night ? '#ffe040' : '#f4f4f4'; x.lineWidth = 1; x.beginPath(); x.arc(cx, cy, m / 3 - 1, 0, TAU); x.stroke(); R(x, cx - 2, cy - 2, 1, 4, '#fff'); R(x, cx + 1, cy - 2, 1, 4, '#fff'); R(x, cx - 1, cy - 0.5, 2, 1, '#fff'); break;   // helipad
+      case 1: R(x, X + 2, Y + 2, w - 4, h - 4, night ? '#0e2a20' : '#5a9a5e'); for (let k = 0; k < 5; k++) C(x, X + 4 + rs() * (w - 8), Y + 4 + rs() * (h - 8), 1.5 + rs() * 2, night ? '#16402c' : '#3e7a44'); if (w > 18) R(x, X + 4, cy - 1, w - 8, 3, night ? '#0a3050' : '#60b8e0'); break;   // garden + pool
+      case 2: for (let k = 0; k < 4; k++) { const ax = X + 3 + rs() * (w - 8), ay = Y + 3 + rs() * (h - 7); R(x, ax, ay, 4, 3, night ? '#2a3048' : '#9aa0ae'); R(x, ax, ay, 4, 1, night ? '#3a4260' : '#d8dce6'); C(x, ax + 2, ay + 1.5, 1, night ? '#101420' : '#50545e'); } break;   // HVAC + vents
+      case 3: case 8: { const ax = X + 3 + ((rs() * (w - 6)) | 0), ay = Y + 3 + ((rs() * (h - 6)) | 0); R(x, ax, ay - 8, 1, 9, night ? '#4a5070' : '#606878'); R(x, ax - 2, ay - 4, 5, 1, night ? '#4a5070' : '#606878'); if (yy === t.y) beacons.push([ax + 0.5, ay - 8]); if (t.kind === 8) { R(x, X + 2, Y + 2, w - 4, 2, night ? '#2a2040' : day(1.1, 10)); R(x, X + 2, Y + h - 4, w - 4, 2, night ? '#2a2040' : day(1.1, 10)); } break; }   // antenna (+ crown)
+      case 4: { R(x, X + 3, Y + 3, w - 6, h - 6, night ? '#181c30' : day(0.9, 15)); R(x, X + 6, Y + 6, w - 12, h - 12, night ? '#20263c' : day(1.05, 25)); C(x, cx, cy, 2.5, night ? '#40486a' : '#e8ecf4'); R(x, cx - 0.5, cy - 10, 1, 10, night ? '#6a7090' : '#c0c4d0'); if (yy === t.y) beacons.push([cx, cy - 10]); break; }   // spire with stepped crown
+      case 5: R(x, X + 3, Y + 2, w - 6, h - 5, night ? '#1c2034' : day(1.08, 12)); R(x, X + 3, Y + h - 3, w - 6, 1, night ? '#0a0c18' : day(0.7, 0)); if (w > 16) { R(x, X + 7, Y + 5, w - 14, h - 11, night ? '#22283e' : day(1.15, 22)); R(x, X + 7, Y + h - 6, w - 14, 1, night ? '#0a0c18' : day(0.7, 0)); } break;   // setbacks
+      case 6: for (let py = Y + 3; py < Y + h - 4; py += 4) for (let px = X + 3; px < X + w - 5; px += 6) { R(x, px, py, 5, 3, night ? '#0c1430' : '#2a3e78'); R(x, px, py, 5, 1, night ? '#18244a' : '#5a7ac0'); } break;   // solar farm
+      default: R(x, X + 2, Y + 2, w - 4, h - 4, night ? '#1a1e30' : day(0.92, 0)); R(x, X + 4, Y + 4, 3, 3, night ? '#2a3048' : '#9aa0ae');
+    }
+    if (night) { x.globalAlpha = 0.25; x.strokeStyle = t.neon; x.lineWidth = 1; x.strokeRect(X + 1.5, Y + 1.5, w - 3, h - 3); x.globalAlpha = 1; }
+    if (yy === t.y) towers.push(t);
   }, t.y, t.h + t.fh + 30, TH);
-  return { c, beacons, neons };
+  return { c, beacons, neons, towers, rails };
+}
+// kanji-style vertical neon signs (abstract glyphs, not real words)
+const KJ = {};
+function kanjiSign(seedv, col, n) {
+  const k = seedv + col + n; if (KJ[k]) return KJ[k]; const c = mkC(7, n * 7 + 2), x = c.getContext('2d'), r = lcg(seedv);
+  R(x, 0, 0, 7, n * 7 + 2, 'rgba(8,6,18,0.9)');
+  for (let g = 0; g < n; g++) { const oy = 1 + g * 7; R(x, 1 + ((r() * 2) | 0), oy + 2, 4, 1, col); R(x, 3, oy, 1, 6, col); if (r() < 0.6) R(x, 1, oy + 4, 5, 1, col); if (r() < 0.5) R(x, 1, oy, 1, 3 + ((r() * 3) | 0), col); if (r() < 0.5) R(x, 5, oy + 1, 1, 4, col); }
+  return (KJ[k] = c);
+}
+function cityLights(nk, dk, t, ty0) {   // v2.6 live layer: neon waves, billboards, signs, trains, steam, searchlights
+  const TH = CITY.TH, T = CITY.towers; let sl = 0;
+  // trains on the elevated rails
+  for (let ri = 0; ri < CITY.rails.length; ri++) { const rx = CITY.rails[ri], dir = ri ? 1 : -1;
+    for (let k = 0; k < 2; k++) { let ty = ((t * 1.4 * dir + k * TH / 2 + ri * 150) % TH + TH) % TH + ty0; if (ty > TH) ty -= TH;
+      for (const yy of [ty, ty - TH]) { if (yy < -60 || yy > H + 4) continue;
+        for (let c = 0; c < 5; c++) { const cy = yy + c * 11; ctx.fillStyle = nk > 0.5 ? '#2a2e44' : '#d8dce4'; ctx.fillRect(rx - 2, cy, 4, 10); ctx.fillStyle = nk > 0.5 ? '#ffe2a0' : '#4a6a9a'; ctx.fillRect(rx - 1, cy + 2, 2, 6); }
+        if (nk > 0.2) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = nk * 0.5; ctx.drawImage(glow('#80e8ff'), rx - 8, yy - 6, 16, 66); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; } } } }
+  for (let i = 0; i < T.length; i++) { const tw = T[i]; let Y = tw.y + ty0; if (Y > TH) Y -= TH;
+    for (const yy of [Y, Y - TH]) { if (yy < -tw.h - tw.fh - 20 || yy > H + 10) continue;
+      const X = tw.x, w = tw.w, h = tw.h, fh = tw.fh, on = 0.1 + 0.75 * ((tw.y / TH + tw.s * 0.2) % 1), lit = clamp((nk - on) * 7, 0, 1);
+      const short = tw.s < 0.25 && ((t + i * 131) % 700) < 10, fl = short ? (t & 2 ? 0.1 : 0.7) : 1;
+      if (short && (t & 7) === 0 && lit > 0.5) sparks(X + w / 2, yy + h, 1, '#ffffff', 1.5, 8);
+      // steam vents (HVAC roofs)
+      if (tw.kind === 2) { ctx.fillStyle = nk > 0.5 ? '#6a6a90' : '#ffffff'; for (let k = 0; k < 3; k++) { const ph = ((t * 0.012 + k / 3 + tw.s) % 1); ctx.globalAlpha = (1 - ph) * 0.35; ctx.beginPath(); ctx.arc(X + w * 0.5 + ph * 7, yy + h * 0.4 - ph * 12, 1.5 + ph * 5, 0, TAU); ctx.fill(); } ctx.globalAlpha = 1; }
+      // holographic billboard on the face
+      if (tw.bb && fh > 12 && w > 14) { const bw = w - 6, bh = Math.min(fh - 5, 10), bx = X + 3, by = yy + h + 2, a = (0.35 + 0.65 * lit) * fl, col = tw.neon;
+        ctx.globalAlpha = a * 0.45; ctx.fillStyle = col; ctx.fillRect(bx, by, bw, bh); ctx.globalAlpha = a; ctx.fillStyle = '#ffffff'; ctx.fillRect(bx + 1, by + 1 + ((t * 0.15 + i) % (bh - 2)), bw - 2, 1);
+        ctx.fillStyle = col; const ph = ((t / 90 + i) | 0) % 3; ctx.fillRect(bx + 2, by + 2, ph === 0 ? bw - 4 : (bw - 4) / 2, 2); ctx.fillRect(bx + 2, by + bh - 4, ph === 1 ? bw - 4 : (bw - 4) / 3, 2); ctx.globalAlpha = 1;
+        if (lit > 0.05) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = lit * 0.35 * fl; ctx.drawImage(glow(col), bx - 8, by - 8, bw + 16, bh + 16); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; } }
+      // vertical kanji sign
+      if (tw.kj && fh > 10) { const n = Math.max(2, Math.min(4, (fh / 7) | 0)), img = kanjiSign((tw.s * 999) | 0, tw.neon, n), sx = X + (tw.s < 0.5 ? -4 : w - 3);
+        ctx.globalAlpha = 0.55 + 0.45 * lit * fl; ctx.drawImage(img, sx, yy + h); ctx.globalAlpha = 1;
+        if (lit > 0.05) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = lit * 0.4 * fl; ctx.drawImage(glow(tw.neon), sx - 6, yy + h - 4, 19, img.height + 8); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; } }
+      if (lit <= 0.01) continue;
+      // neon edge outlines + bloom (towers switch on in waves as night falls)
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = lit * 0.7 * fl; ctx.strokeStyle = tw.neon; ctx.lineWidth = 1; ctx.strokeRect(X + 0.5, yy + 0.5, w - 1, h - 1);
+      ctx.globalAlpha = lit * 0.6 * fl; ctx.beginPath(); ctx.moveTo(X, yy + h + fh - 0.5); ctx.lineTo(X + w, yy + h + fh - 0.5); ctx.stroke();
+      ctx.globalAlpha = lit * 0.18 * fl; ctx.drawImage(glow(tw.neon), X - 8, yy - 8, w + 16, h + fh + 16);
+      // searchlights from spires
+      if (tw.kind === 4 && sl < 3) { sl++; const a = -Math.PI / 2 + Math.sin(t * 0.012 + tw.s * 9) * 1.1, L = 150; ctx.globalAlpha = lit * 0.08; ctx.fillStyle = '#d0e0ff'; ctx.beginPath(); ctx.moveTo(X + w / 2, yy + h / 2); ctx.lineTo(X + w / 2 + Math.cos(a - 0.12) * L, yy + h / 2 + Math.sin(a - 0.12) * L); ctx.lineTo(X + w / 2 + Math.cos(a + 0.12) * L, yy + h / 2 + Math.sin(a + 0.12) * L); ctx.fill(); }
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    } }
 }
 function genClouds(night, seedv, n, scale, cover) {
   const TH = CITY.TH, c = mkC(W, TH), x = c.getContext('2d'), r = lcg(seedv), blobs = [];
@@ -1399,14 +1454,14 @@ function genClouds(night, seedv, n, scale, cover) {
     for (const b of blobs) C(x, b[0] - 2, b[1] + dy - 3, b[2] * 0.45, tones[3]);
   }
   if (night) { // neon underglow from the city below
-    x.globalCompositeOperation = 'source-atop'; for (const b of blobs) if (r() < cover) { x.globalAlpha = 0.22; C(x, b[0] + 2, b[1] + 6, b[2] * 0.8, r() < 0.5 ? '#ff3ab0' : '#30c0ff'); } x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
+    x.globalCompositeOperation = 'source-atop'; for (const b of blobs) if (r() < cover) { x.globalAlpha = 0.32; C(x, b[0] + 2, b[1] + 6, b[2] * 0.8, ['#ff3ab0', '#30c0ff', '#a050ff'][(r() * 3) | 0]); } x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
   }
   pix(c, false); return c;
 }
 function cityInit(seedv) {
   if (CITY.seed === seedv) return; CITY.seed = seedv;
   const f = genFar(false, seedv), fn = genFar(true, seedv); CITY.far = f.c; CITY.farN = fn.c; CITY.streets = f.streets;
-  const t = genTowers(false, seedv + 99), tn = genTowers(true, seedv + 99); CITY.tow = t.c; CITY.towN = tn.c; CITY.beacons = t.beacons; CITY.neons = tn.neons;
+  const t = genTowers(false, seedv + 99), tn = genTowers(true, seedv + 99); CITY.tow = t.c; CITY.towN = tn.c; CITY.beacons = t.beacons; CITY.neons = tn.neons; CITY.towers = t.towers; CITY.rails = t.rails;
   if (!CITY.cl1) { CITY.cl1 = genClouds(false, 4, 6, 1.2, 0.3); CITY.cl1N = genClouds(true, 4, 6, 1.2, 0.3); CITY.cl2 = genClouds(false, 8, 4, 1.8, 0.4); CITY.cl2N = genClouds(true, 8, 4, 1.8, 0.4); }
   const rq = lcg(seedv + 5); CITY.cars.length = 0;
   for (let i = 0; i < 90; i++) { const s = CITY.streets[(rq() * CITY.streets.length) | 0]; CITY.cars.push({ s, p: rq() * (s[0] ? CITY.TH : W), v: (0.25 + rq() * 0.5) * (rq() < 0.5 ? -1 : 1), lane: rq() < 0.5 ? -0.7 : 0.7 }); }
@@ -1416,15 +1471,11 @@ function cityInit(seedv) {
 // ---- v2.3 open ocean (city gives way to sea at ~1:00 of play) ----
 const OCEAN_FROM = 50, OCEAN_AT = 58, CITY_BACK_FROM = 174, CITY_BACK_AT = 182;   // city -> sea at ~1:00 (coastline fly-out), sea -> city at ~3:00 (coastline fly-in); city stays after
 function terrainSec() { return G.scene === 'play' || G.scene === 'pause' || G.scene === 'quit' || G.scene === 'continue' || G.scene === 'options' ? (G.playT || 0) / 60 : 0; }
-function terrain() {
-  const s = terrainSec(), edge = k => -20 + (H + 40) * smooth(0, 1, k);   // shoreline sweeps down the screen as we fly past it
-  if (s < OCEAN_FROM) return { cur: 'city' };
-  if (s < OCEAN_AT) return { cur: 'city', next: 'sea', edge: edge((s - OCEAN_FROM) / (OCEAN_AT - OCEAN_FROM)) };
-  if (s < CITY_BACK_FROM) return { cur: 'sea' };
-  if (s < CITY_BACK_AT) return { cur: 'sea', next: 'city', edge: edge((s - CITY_BACK_FROM) / (CITY_BACK_AT - CITY_BACK_FROM)) };
-  return { cur: 'city' };
-}
-function oceanK() { const s = terrainSec(); return smooth(OCEAN_FROM, OCEAN_AT, s) * (1 - smooth(CITY_BACK_FROM, CITY_BACK_AT, s)); }
+const WALLS = [[OCEAN_FROM + 1, OCEAN_AT - 1], [CITY_BACK_FROM + 1, CITY_BACK_AT - 1]];   // v2.6: [51,57] and [175,181]; terrain swaps at the middle, fully hidden
+const SWAP1 = (WALLS[0][0] + WALLS[0][1]) / 2, SWAP2 = (WALLS[1][0] + WALLS[1][1]) / 2;
+function wallK(s) { if (s == null) s = terrainSec(); let k = 0; for (const [a, b] of WALLS) k = Math.max(k, smooth(a, a + 1.8, s) * (1 - smooth(b - 1.8, b, s))); return k; }
+function terrain() { const s = terrainSec(); return { cur: s >= SWAP1 && s < SWAP2 ? 'sea' : 'city' }; }
+function oceanK() { const s = terrainSec(); return smooth(SWAP1 - 0.1, SWAP1 + 0.1, s) * (1 - smooth(SWAP2 - 0.1, SWAP2 + 0.1, s)); }
 function oceanKOld() { const s = G.scene === 'play' || G.scene === 'pause' || G.scene === 'quit' || G.scene === 'continue' || G.scene === 'options' ? (G.playT || 0) / 60 : 0; return smooth(OCEAN_FROM, OCEAN_AT, s); }
 const OCEAN = { base: null, baseN: null, crest: null, crestN: null, ships: [] };
 function genOcean(night) {
@@ -1531,6 +1582,7 @@ function CITY_DRAW(sp, nk, dk, t, TH, farPos, towPos) {
   // 4. towers
   tileL(blended('tow', CITY.tow, CITY.towN, nk), towPos, 1);
   const ty0 = ((towPos % TH) + TH) % TH;
+  cityLights(nk, dk, t, ty0);
   if (nk > 0.05) { // neon sign glow + flicker
     ctx.globalCompositeOperation = 'lighter';
     for (let i = 0; i < CITY.neons.length; i++) { const n = CITY.neons[i]; let Y = n[1] + ty0; if (Y > TH) Y -= TH; for (const yy of [Y, Y - TH]) { if (yy < -20 || yy > H + 20) continue; const fl = ((t + i * 37) % 173) < 6 ? 0.2 : 1; const r = n[3] * 0.8 + 4; ctx.globalAlpha = nk * 0.5 * fl; ctx.drawImage(glow(n[2]), n[0] - r, yy - r * 0.5, r * 2, r); } }
@@ -1549,19 +1601,50 @@ function CITY_DRAW(sp, nk, dk, t, TH, farPos, towPos) {
     if (nk > 0.2) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = nk; ctx.drawImage(glow('#fff0c0'), X + d * 3 * s - 3, Y - 3, 6, 6); ctx.globalAlpha = nk * 0.5; ctx.strokeStyle = v.col; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X - d * 3 * s, Y + 0.5); ctx.lineTo(X - d * 16 * s, Y + 0.5); ctx.stroke(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
   }
   }
+// ---- v2.6 cloud wall (hides the city<->sea changeover) + rare big cloud patches. Drawn under all gameplay sprites. ----
+function genCloudMass(w, h, seedv, n, night) {   // one big puffy cumulus mass with soft lit top and shaded underside
+  const c = mkC(w, h), x = c.getContext('2d'), r = lcg(seedv), blobs = [];
+  for (let i = 0; i < n; i++) { const a = r() * TAU, d = Math.sqrt(r()); blobs.push([w / 2 + Math.cos(a) * d * w * 0.42, h / 2 + Math.sin(a) * d * h * 0.36, (0.25 + r() * 0.4) * Math.min(w, h) * 0.3]); }
+  const tones = night ? ['#141a34', '#252c4c', '#363e66', '#4a5280'] : ['#9aaecc', '#c8d6ec', '#e8f0fc', '#ffffff'];
+  for (const b of blobs) C(x, b[0] + 3, b[1] + 8, b[2], tones[0]);
+  for (const b of blobs) C(x, b[0], b[1] + 3, b[2] * 0.94, tones[1]);
+  for (const b of blobs) C(x, b[0] - 2, b[1] - 1, b[2] * 0.8, tones[2]);
+  for (const b of blobs) C(x, b[0] - 4, b[1] - 5, b[2] * 0.48, tones[3]);
+  pix(c, false); return c;
+}
+function wallTex(night) { const k = night ? 'wN' : 'wD'; if (!CITY[k]) CITY[k] = genClouds(night, night ? 91 : 90, 26, 2.6, 0.5); return CITY[k]; }
+function drawCloudWall(k, nk, sp) {
+  if (k <= 0.002) return;
+  const base = nk > 0.5 ? [38, 44, 74] : [214, 226, 244];
+  ctx.fillStyle = `rgba(${base[0]},${base[1]},${base[2]},${Math.min(1, k * 1.15)})`; ctx.fillRect(0, 0, W, H);   // opaque at full -> background swap is invisible
+  tileL(blended('wall', wallTex(false), wallTex(true), nk), sp * 2.6, k);
+  tileL(blended('wall', wallTex(false), wallTex(true), nk), sp * 3.6 + 211, k * 0.8);
+  // speed wisps so it feels like flying through
+  ctx.globalAlpha = 0.35 * k; ctx.fillStyle = nk > 0.5 ? '#6a74a8' : '#ffffff';
+  for (let i = 0; i < 14; i++) { const X = (i * 61 + 23) % W, Y = ((sp * 6 + i * 137) % (H + 80)) - 80; ctx.fillRect(X, Y, 1, 30 + (i % 4) * 12); }
+  ctx.globalAlpha = 1;
+}
+const PATCH = { next: -1, start: -1, x: 0, spr: null, sprN: null, dur: 0 };
+function drawCloudPatch(nk, sp) {
+  const s = terrainSec(); if (!s) { PATCH.next = -1; PATCH.start = -1; return; }
+  if (PATCH.next < 0 || PATCH.next > s + 120) PATCH.next = s + 40 + Math.random() * 50;
+  if (PATCH.start < 0 && s >= PATCH.next) { if (wallK(s) > 0 || wallK(s + 8) > 0) PATCH.next = s + 12; else { PATCH.start = s; PATCH.x = (Math.random() - 0.5) * 120; PATCH.dur = 7 + Math.random() * 3; G.patches = (G.patches || 0) + 1; } }
+  if (PATCH.start < 0) return; const k = (s - PATCH.start) / PATCH.dur; if (k >= 1 || k < 0) { PATCH.start = -1; PATCH.next = s + 40 + Math.random() * 50; return; }
+  if (!PATCH.spr) { PATCH.spr = genCloudMass(W + 140, 340, 7, 46, false); PATCH.sprN = genCloudMass(W + 140, 340, 7, 46, true); }
+  const img = blended('patch', PATCH.spr, PATCH.sprN, nk), y = -img.height + k * (H + img.height);
+  ctx.globalAlpha = 0.78 - 0.1 * nk; ctx.drawImage(img, Math.round((W - img.width) / 2 + PATCH.x), Math.round(y)); ctx.globalAlpha = 1;   // semi-transparent; gameplay draws on top
+}
 function bgDraw() {
   const sp = G.scrollPos, nk = nightK(), dk = duskK(), TH = CITY.TH, t = G.t;
   const farPos = sp * 0.32, towPos = sp * 0.55, ok = oceanK();
   const TR = terrain();
   const city = () => { CITY_DRAW(sp, nk, dk, t, TH, farPos, towPos); }, sea = () => drawOcean(1, nk);
-  if (TR.edge == null) { if (TR.cur === 'sea') sea(); else city(); }
-  else { const ey = TR.edge, top = TR.next === 'sea' ? sea : city, bot = TR.next === 'sea' ? city : sea;
-    ctx.save(); ctx.beginPath(); ctx.rect(0, ey - 14, W, H + 30); ctx.clip(); bot(); ctx.restore();
-    ctx.save(); ctx.beginPath(); ctx.rect(0, -10, W, ey + 14 + 10); ctx.clip(); top(); ctx.restore();
-    drawCoast(ey, TR.next === 'sea', nk); }
+  const wk = wallK();
+  if (wk < 0.999) { if (TR.cur === 'sea') sea(); else city(); }
   // 6. cloud decks drifting over the city / sea (we are above them)
   const ca = (0.55 - 0.15 * nk) * (1 - 0.25 * ok * nk); tileL(ok > 0.5 ? blended('cl1o', CITY.cl1, seaNightCloud('cl1'), nk) : blended('cl1', CITY.cl1, CITY.cl1N, nk), sp * 0.9, ca);
   const cb = (0.42 - 0.12 * nk) * (1 - 0.25 * ok * nk); tileL(ok > 0.5 ? blended('cl2o', CITY.cl2, seaNightCloud('cl2'), nk) : blended('cl2', CITY.cl2, CITY.cl2N, nk), sp * 1.5, cb);
+  drawCloudPatch(nk, sp); drawCloudWall(wk, nk, sp);
   // 7. sunset warmth + night grade
   if (dk > 0.01) { const g = ctx.createLinearGradient(0, 0, 0, H); const ok2 = oceanK(); g.addColorStop(0, `rgba(255,${120 + 40 * ok2 | 0},60,${0.28 * dk * (1 - 0.45 * ok2)})`); g.addColorStop(1, `rgba(140,40,120,${0.18 * dk * (1 - ok2)})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
   if (nk > 0.01) { ctx.fillStyle = `rgba(6,4,20,${0.18 * nk})`; ctx.fillRect(0, 0, W, H); }
