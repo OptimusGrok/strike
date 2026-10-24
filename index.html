@@ -564,6 +564,13 @@ const DRAW = {
     M(x, w, [19, 31, 24, 26, 25, 6, 19, 1], p.a); M(x, w, [23, 9, 36, 13, 36, 22, 24, 24], p.b); M(x, w, [30, 20, 33, 20, 33, 29, 30, 29], p.d);
     MR(x, w, 33, 13, 3, 4, p.c); R(x, 16, 20, 6, 5, p.g); R(x, 15, 7, 8, 3, p.e); P(x, [19, 1, 25, 6, 24, 26, 19, 31], 'rgba(0,0,0,0.22)');
   }),
+  gunboat: p => spr(18, 26, (x, w) => {   // v2.9 grey patrol gunboat
+    M(x, w, [9, 1, 13, 7, 14, 22, 12, 25, 9, 25], '#7a8494'); M(x, w, [9, 4, 11, 8, 11, 20, 9, 21], '#a8b2c0'); R(x, 6, 10, 6, 6, '#4a5260'); R(x, 7, 11, 4, 2, '#9ad8ff'); C(x, 9, 19, 2.5, '#3a404c'); R(x, 8.5, 14, 1, 6, '#2a2e38'); R(x, 8, 2, 2, 2, '#e8603a');
+  }),
+  sub: p => spr(20, 46, (x, w) => {   // v2.9 surfacing attack sub
+    M(x, w, [10, 1, 15, 8, 16, 38, 13, 45, 10, 45], '#2e3a4a'); M(x, w, [10, 6, 12, 10, 12, 36, 10, 40], '#4a5a70'); R(x, 7, 16, 6, 10, '#1e2632'); R(x, 8, 17, 4, 3, '#5a6a80'); R(x, 9, 12, 2, 4, '#e8603a');
+    for (let i = 0; i < 3; i++) R(x, 6, 29 + i * 4, 8, 1, '#56687e'); M(x, w, [10, 40, 18, 44, 18, 46, 10, 45], '#2e3a4a');
+  }),
   cruiser: p => spr(42, 54, (x, w) => {
     M(x, w, [21, 53, 28, 44, 30, 10, 26, 2, 21, 1], p.a); M(x, w, [29, 16, 40, 20, 40, 36, 29, 40], p.b);
     R(x, 15, 12, 12, 10, p.b); R(x, 17, 14, 8, 6, p.d); C(x, 21, 32, 5, p.d); C(x, 21, 32, 3, p.g); MR(x, w, 36, 22, 3, 12, p.c);
@@ -864,7 +871,7 @@ function danger() { return G.wlv >= MAXLV && G.scene !== 'title' ? 3 : 1; }
 const BOSS_WK = { V: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1], R: [0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.55], B: [0.42, 0.42, 0.4, 0.4, 0.38, 0.38, 0.38, 0.38, 0.38, 0.38], P: [5, 4.4, 3.8, 3.2, 2.6, 2.0, 1.6, 1.2, 1.1, 1.0] };
 function bossWpnK() { const a = BOSS_WK[G.weapon]; return a ? a[clamp(G.wlv, 1, MAXLV) - 1] : 1; }
 let ORB_FRAC = 0.25;   // same-colour orb = half a level of chips
-function chipNeed(lv) { return Math.round((CHIP_A + lv * CHIP_B) * (lv >= THR_LV ? 0.62 : 1)); }   // LV8->10 ~2.5 min more
+function chipNeed(lv) { return Math.round((CHIP_A + lv * CHIP_B) * (lv >= THR_LV ? 0.9 : 1)); }   // v2.9: LV8->10 ~3.5 min more
 let CHIP_A = 30, CHIP_B = 40;   // v2.2: ~7 min to LV8
 function bounds() { const m = G.stage === 3 ? G.wallW : 0; return { l: m + 8, r: W - m - 8 }; }
 
@@ -1069,7 +1076,7 @@ function collect(it) {
     G.chips = (G.chips || 0) + (it.v || 1); Snd.sfx('pickup'); part(7, pl.x, pl.y, 0, 0, 8, 10, '#ffb040');
     while (G.chips >= chipNeed(G.wlv)) { G.chips -= chipNeed(G.wlv); const was = G.wlv; levelUp(it); if (G.wlv === was) { G.chips = 0; break; } }
   } else if (ty === 'shield') { if ((G.shield || 0) < SHIELD_MAX) { G.shield = (G.shield || 0) + 1; UI.toast('SHIELD ' + G.shield + '/3', '#60f0ff'); } else { addScore(2000, it.x, it.y); UI.toast('SHIELD FULL +2000', '#60f0ff'); } G.shieldFx = Math.max(G.shieldFx || 0, 18); Snd.sfx('bombitem'); part(3, pl.x, pl.y, 0, 0, 22, 26, '#60f0ff');
-  } else if (ty === 'bomb') { if (G.bombs < 7) G.bombs++; else addScore(2000, it.x, it.y); Snd.sfx('bombitem'); UI.toast('BOMB +1', '#40ff80'); }
+  } else if (ty === 'bomb') { if (G.bombs < 4) { G.bombs++; UI.toast('BOMB +1', '#40ff80'); } else { addScore(5000, it.x, it.y); UI.toast('BOMB FULL +5000', '#40ff80'); } Snd.sfx('bombitem'); }
   else if (ty === 'medal') { addScore(G.medal, it.x, it.y, true); G.medal = Math.min(G.medal + 500, 5000); Snd.sfx('medal'); G.mult = Math.min(8, G.mult + 0.05); }
   else if (ty === 'up') { G.lives++; Snd.sfx('oneup'); UI.toast('1UP', '#ff60a0'); }
   G.stats.items++; items.kill(it);
@@ -1089,7 +1096,7 @@ function drawItems() {
 }
 function levelUp(it) {
   const ty = G.weapon, wc = WPN[ty].col;
-  if (G.wlv < MAXLV) { G.wlv++; Snd.sfx('power'); UI.toast(WPN[ty].name + ' LV' + G.wlv + (G.wlv === MAXLV ? ' MAX' : ''), wc); if (G.wlv === MAXLV) { G.dangerT = 210; G.shake = Math.max(G.shake, 10); Snd.sfx('expL'); }; part(3, pl.x, pl.y, 0, 0, 24, 40, wc); sparks(pl.x, pl.y, 16, wc, 3.5, 18); G.lvFlash = 40; }
+  if (G.wlv < MAXLV) { G.wlv++; Snd.sfx('power'); UI.toast(WPN[ty].name + ' LV' + G.wlv + (G.wlv === MAXLV ? ' MAX' : ''), wc); if (G.wlv === MAXLV) { G.shield = 3; G.shieldFx = 36; pl.inv = Math.max(pl.inv, 180); G.bannerT = 0; G.dangerT = 210; G.shake = Math.max(G.shake, 10); Snd.sfx('expL'); }; part(3, pl.x, pl.y, 0, 0, 24, 40, wc); sparks(pl.x, pl.y, 16, wc, 3.5, 18); G.lvFlash = 40; }
   else { addScore(5000, it.x, it.y); Snd.sfx('pickup'); UI.toast('MAX BONUS 5000', wc); }
 }
 // ---- scoring ----
@@ -1107,14 +1114,15 @@ function hurt(t, dmg, kind) {
   t.hp -= dmg; t.flash = 3; Snd.sfx('hit');
   if (t.hp <= 0) { if (t.isPart) partDie(t); else enemyDie(t, true); }
 }
-function killPlayer() {
+function killPlayer(cause) {
   if (G.god) { pl.inv = 30; return; }
+  G.hitCause = cause || 'HIT'; G.hitCauseT = 90; G.hitLog = G.hitLog || []; G.hitLog.push([(G.playT / 60) | 0, G.hitCause]);
   if (pl.alive && (G.shield || 0) > 0) {   // v2.3 shield soaks the hit
     G.shield--; pl.inv = SHIELD_INV; G.shieldFx = 36; G.shieldHits = (G.shieldHits || 0) + 1;
     Snd.sfx('shield'); G.shake = Math.max(G.shake, 6); sparks(pl.x, pl.y, 18, '#60f0ff', 3.5, 18); part(3, pl.x, pl.y, 0, 0, 26, 30, '#60f0ff');
     UI.toast(G.shield ? 'SHIELD ' + G.shield + '/3' : 'SHIELD DOWN!', G.shield ? '#60f0ff' : '#ff6070'); return;
   }
-  pl.alive = false; pl.respawn = 80; pl.beamOn = false; G.deaths++; G.stats.deaths++;
+  G.slowmo = 36; pl.alive = false; pl.respawn = 80; pl.beamOn = false; G.deaths++; G.stats.deaths++;
   boomL(pl.x, pl.y, 0.8); part(3, pl.x, pl.y, 0, 0, 40, 120, '#80c0ff'); Snd.sfx('pdie'); G.shake = 16; G.flash = 6;
   G.mult = 1; G.medal = 500; G.lives--;
   const drop = G.weapon;
@@ -1186,18 +1194,18 @@ function collide() {
   const b = ebul.items, px = pl.x, py = pl.y;
   for (let i = 0; i < b.length; i++) {
     const u = b[i]; if (!u.alive) continue; const rr = EB_HIT[u.k] + PL_R, dx = u.x - px, dy = u.y - py;
-    if (dx * dx + dy * dy < rr * rr) { if (vuln) { ebul.kill(u); killPlayer(); return; } }
+    if (dx * dx + dy * dy < rr * rr) { if (vuln) { ebul.kill(u); killPlayer('BULLET'); return; } }
   }
   if (!vuln) return;
   const e = enemies.items;
   for (let i = 0; i < e.length; i++) {
     const t = e[i]; if (!t.alive || !t.solid) continue;
-    if (t.kind === 'barrier') { if (Math.abs(py - t.y) < 4 && (px < t.gx - t.gw / 2 + 2 || px > t.gx + t.gw / 2 - 2) && t.t > 0) { killPlayer(); return; } continue; }
-    if (t.hw ? (Math.abs(px - t.x) < t.hw * 0.8 && Math.abs(py - t.y) < t.hh * 0.8) : dist2(px, py, t.x, t.y) < Math.pow(t.r * 0.7 + PL_R, 2)) { killPlayer(); hurt(t, 20, 'ram'); return; }
+    if (t.kind === 'barrier') { if (Math.abs(py - t.y) < 4 && (px < t.gx - t.gw / 2 + 2 || px > t.gx + t.gw / 2 - 2) && t.t > 0) { killPlayer('BARRIER'); return; } continue; }
+    if (t.hw ? (Math.abs(px - t.x) < t.hw * 0.8 && Math.abs(py - t.y) < t.hh * 0.8) : dist2(px, py, t.x, t.y) < Math.pow(t.r * 0.7 + PL_R, 2)) { killPlayer('RAM:' + t.kind); hurt(t, 20, 'ram'); return; }
   }
-  if (G.boss && !G.boss.dying) for (const p of G.boss.parts) if (p.alive && p.solid && hitT(p, px, py, -Math.min(4, (p.hw || p.r) * 0.25))) { killPlayer(); return; }
+  if (G.boss && !G.boss.dying) for (const p of G.boss.parts) if (p.alive && p.solid && hitT(p, px, py, -Math.min(4, (p.hw || p.r) * 0.25))) { killPlayer('BOSS HULL'); return; }
   const l = lasers.items;
-  for (let i = 0; i < l.length; i++) if (l[i].alive && laserHits(l[i], px, py)) { killPlayer(); return; }
+  for (let i = 0; i < l.length; i++) if (l[i].alive && laserHits(l[i], px, py)) { killPlayer(l[i].big ? 'BIG LASER' : 'LASER'); return; }
 }
 // ---- drawing player + shots ----
 function drawShots() {
@@ -1240,7 +1248,9 @@ function drawPlayer() {
   const fi = pl.bank < -0.35 ? 0 : pl.bank > 0.35 ? 2 : 1; blit(PLAYER_SPR[fi], pl.x, pl.y);
   if ((G.t >> 4) & 1) { ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(glow('#ff4040'), pl.x - 16, pl.y + 2, 6, 6); ctx.drawImage(glow('#40ff80'), pl.x + 10, pl.y + 2, 6, 6); ctx.globalCompositeOperation = 'source-over'; }
   // weapon state glow ring on the canopy area
-  if (G.wlv >= 9 && pl.alive) { ctx.globalCompositeOperation = 'lighter'; const k = G.wlv - 8, r = 14 + 6 * k + Math.sin(G.t * 0.25) * 3; ctx.globalAlpha = 0.25 * k; ctx.drawImage(glow(G.wlv >= MAXLV ? '#ff3040' : '#ffffff'), pl.x - r, pl.y - r, r * 2, r * 2); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }   // v2.8 overdrive aura
+  if (G.wlv >= 9 && pl.alive) { ctx.globalCompositeOperation = 'lighter'; const k = G.wlv - 8, r = 14 + 6 * k + Math.sin(G.t * 0.25) * 3; ctx.globalAlpha = 0.25 * k; ctx.drawImage(glow(G.wlv >= MAXLV ? '#ff3040' : '#ffffff'), pl.x - r, pl.y - r, r * 2, r * 2);
+    if (G.wlv >= MAXLV) { const f = 0.6 + 0.4 * Math.sin(G.t * 0.9), my = pl.y - 18, L = 10 + 4 * f; ctx.globalAlpha = 0.9 * f; ctx.fillStyle = '#ffffff'; ctx.fillRect(pl.x - 0.5, my - L, 1, L * 2); ctx.fillRect(pl.x - L, my - 0.5, L * 2, 1); ctx.fillStyle = '#ff3040'; ctx.fillRect(pl.x - 1.5, my - L * 0.6, 3, L * 1.2); ctx.drawImage(glow('#ff6050'), pl.x - 9, my - 9, 18, 18); }   // v2.9 LV10 overdrive muzzle star
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }   // v2.8 overdrive aura
   if (G.weapon !== 'V') { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5 + 0.1 * G.wlv; const r = 4 + G.wlv; ctx.drawImage(glow(WPN[G.weapon].col), pl.x - r, pl.y + 2 - r, r * 2, r * 2); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
   // hitbox dot: always visible, larger/brighter when focused
   const hr = pl.focus ? 3 : 2;
@@ -1248,6 +1258,9 @@ function drawPlayer() {
   ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(pl.x) - 1, Math.round(pl.y) - 1, 2, 2);
   if (pl.focus) { ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(pl.x, pl.y, 9 + Math.sin(G.t * 0.3), 0, TAU); ctx.stroke(); }
 }
+
+// v2.9 hit-cause cue
+function drawHitCause() { if (!(G.hitCauseT > 0)) return; G.hitCauseT--; const a = Math.min(1, G.hitCauseT / 20); ctx.globalAlpha = a; const s = 'HIT BY ' + G.hitCause.replace(/^RAM:.*/, 'COLLISION'); ctx.fillStyle = 'rgba(40,0,8,0.7)'; ctx.fillRect(W / 2 - s.length * 3.5 - 6, H - 78, s.length * 7 + 12, 13); text(s, W / 2, H - 75, '#ff8090', 1, 'c'); ctx.globalAlpha = 1; }
 
 // ===== STRIKE plasma: purple homing whip laser (bends, curves and loops to reach targets) =====
 const PLZ_SEG = 12, PLZ_MAX = 48;
@@ -1453,17 +1466,17 @@ function cityLights(nk, dk, t, ty0) {   // v2.6 live layer: neon waves, billboar
       if (tw.bb && fh > 12 && w > 14) { const bw = w - 6, bh = Math.min(fh - 5, 10), bx = X + 3, by = yy + h + 2, a = (0.35 + 0.65 * lit) * fl, col = tw.neon;
         ctx.globalAlpha = a * 0.45; ctx.fillStyle = col; ctx.fillRect(bx, by, bw, bh); ctx.globalAlpha = a; ctx.fillStyle = '#ffffff'; ctx.fillRect(bx + 1, by + 1 + ((t * 0.15 + i) % (bh - 2)), bw - 2, 1);
         ctx.fillStyle = col; const ph = ((t / 90 + i) | 0) % 3; ctx.fillRect(bx + 2, by + 2, ph === 0 ? bw - 4 : (bw - 4) / 2, 2); ctx.fillRect(bx + 2, by + bh - 4, ph === 1 ? bw - 4 : (bw - 4) / 3, 2); ctx.globalAlpha = 1;
-        if (lit > 0.05) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = lit * 0.35 * fl; ctx.drawImage(glow(col), bx - 8, by - 8, bw + 16, bh + 16); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; } }
+        if (lit > 0.05 && danger() === 1) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = lit * 0.35 * fl; ctx.drawImage(glow(col), bx - 8, by - 8, bw + 16, bh + 16); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; } }
       // vertical kanji sign
       if (tw.kj && fh > 10) { const n = Math.max(2, Math.min(4, (fh / 7) | 0)), img = kanjiSign((tw.s * 999) | 0, tw.neon, n), sx = X + (tw.s < 0.5 ? -4 : w - 3);
         ctx.globalAlpha = 0.55 + 0.45 * lit * fl; ctx.drawImage(img, sx, yy + h); ctx.globalAlpha = 1;
-        if (lit > 0.05) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = lit * 0.4 * fl; ctx.drawImage(glow(tw.neon), sx - 6, yy + h - 4, 19, img.height + 8); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; } }
+        if (lit > 0.05 && danger() === 1) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = lit * 0.4 * fl; ctx.drawImage(glow(tw.neon), sx - 6, yy + h - 4, 19, img.height + 8); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; } }
       if (lit <= 0.01) continue;
       // v2.7: no edge outlines; a few towers carry a single neon accent strip
       ctx.globalCompositeOperation = 'lighter';
       if (tw.s > 0.72) { ctx.globalAlpha = lit * 0.75 * fl; ctx.fillStyle = tw.neon; ctx.fillRect(X, yy + h + 1, Math.min(w, 40), 1); ctx.globalAlpha = lit * 0.12 * fl; ctx.drawImage(glow(tw.neon), X - 4, yy + h - 4, Math.min(w, 40) + 8, 10); }
       // searchlights from spires
-      if (tw.kind === 4 && sl < 3) { sl++; const a = -Math.PI / 2 + Math.sin(t * 0.012 + tw.s * 9) * 1.1, L = 150; ctx.globalAlpha = lit * 0.08; ctx.fillStyle = '#d0e0ff'; ctx.beginPath(); ctx.moveTo(X + w / 2, yy + h / 2); ctx.lineTo(X + w / 2 + Math.cos(a - 0.12) * L, yy + h / 2 + Math.sin(a - 0.12) * L); ctx.lineTo(X + w / 2 + Math.cos(a + 0.12) * L, yy + h / 2 + Math.sin(a + 0.12) * L); ctx.fill(); }
+      if (tw.kind === 4 && sl < (danger() > 1 ? 0 : 3)) { sl++; const a = -Math.PI / 2 + Math.sin(t * 0.012 + tw.s * 9) * 1.1, L = 150; ctx.globalAlpha = lit * 0.08; ctx.fillStyle = '#d0e0ff'; ctx.beginPath(); ctx.moveTo(X + w / 2, yy + h / 2); ctx.lineTo(X + w / 2 + Math.cos(a - 0.12) * L, yy + h / 2 + Math.sin(a - 0.12) * L); ctx.lineTo(X + w / 2 + Math.cos(a + 0.12) * L, yy + h / 2 + Math.sin(a + 0.12) * L); ctx.fill(); }
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     } }
 }
@@ -1478,7 +1491,7 @@ function genClouds(night, seedv, n, scale, cover) {
     for (const b of blobs) C(x, b[0] - 2, b[1] + dy - 3, b[2] * 0.45, tones[3]);
   }
   if (night) { // neon underglow from the city below
-    x.globalCompositeOperation = 'source-atop'; for (const b of blobs) if (r() < cover) { x.globalAlpha = 0.32; C(x, b[0] + 2, b[1] + 6, b[2] * 0.8, ['#ff3ab0', '#30c0ff', '#a050ff'][(r() * 3) | 0]); } x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
+    x.globalCompositeOperation = 'source-atop'; for (const b of blobs) if (r() < cover) { x.globalAlpha = 0.1; C(x, b[0] + 2, b[1] + 6, b[2] * 0.8, ['#ff3ab0', '#30c0ff', '#a050ff'][(r() * 3) | 0]); } x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
   }
   pix(c, false); return c;
 }
@@ -1640,10 +1653,10 @@ function genCloudMass(w, h, seedv, n, night) {   // one big puffy cumulus mass w
 function wallTex(night) { const k = night ? 'wN' : 'wD'; if (!CITY[k]) CITY[k] = genClouds(night, night ? 91 : 90, 26, 2.6, 0.5); return CITY[k]; }
 function drawCloudWall(k, nk, sp) {
   if (k <= 0.002) return;
-  const base = nk > 0.5 ? [38, 44, 74] : [214, 226, 244];
+  const base = nk > 0.5 ? [30, 34, 58] : [150, 166, 196];   // v2.9: mid-tone so bullets and shots read
   ctx.fillStyle = `rgba(${base[0]},${base[1]},${base[2]},${Math.min(1, k * 1.15)})`; ctx.fillRect(0, 0, W, H);   // opaque at full -> background swap is invisible
-  tileL(blended('wall', wallTex(false), wallTex(true), nk), sp * 2.6, k);
-  tileL(blended('wall', wallTex(false), wallTex(true), nk), sp * 3.6 + 211, k * 0.8);
+  tileL(blended('wall', wallTex(false), wallTex(true), nk), sp * 2.6, k * 0.55);
+  tileL(blended('wall', wallTex(false), wallTex(true), nk), sp * 3.6 + 211, k * 0.4);
   // speed wisps so it feels like flying through
   ctx.globalAlpha = 0.35 * k; ctx.fillStyle = nk > 0.5 ? '#6a74a8' : '#ffffff';
   for (let i = 0; i < 14; i++) { const X = (i * 61 + 23) % W, Y = ((sp * 6 + i * 137) % (H + 80)) - 80; ctx.fillRect(X, Y, 1, 30 + (i % 4) * 12); }
@@ -1667,8 +1680,8 @@ function bgDraw() {
   const wk = wallK();
   if (wk < 0.999) { if (TR.cur === 'sea') sea(); else city(); }
   // 6. cloud decks drifting over the city / sea (we are above them)
-  const ca = (0.55 - 0.15 * nk) * (1 - 0.25 * ok * nk); tileL(ok > 0.5 ? blended('cl1o', CITY.cl1, seaNightCloud('cl1'), nk) : blended('cl1', CITY.cl1, CITY.cl1N, nk), sp * 0.9, ca);
-  const cb = (0.42 - 0.12 * nk) * (1 - 0.25 * ok * nk); tileL(ok > 0.5 ? blended('cl2o', CITY.cl2, seaNightCloud('cl2'), nk) : blended('cl2', CITY.cl2, CITY.cl2N, nk), sp * 1.5, cb);
+  const ca = (0.55 - (ok > 0.5 ? 0.15 : 0.33) * nk) * (1 - 0.25 * ok * nk);   // v2.9 thinner night clouds over the city tileL(ok > 0.5 ? blended('cl1o', CITY.cl1, seaNightCloud('cl1'), nk) : blended('cl1', CITY.cl1, CITY.cl1N, nk), sp * 0.9, ca);
+  const cb = (0.42 - (ok > 0.5 ? 0.12 : 0.3) * nk) * (1 - 0.25 * ok * nk); tileL(ok > 0.5 ? blended('cl2o', CITY.cl2, seaNightCloud('cl2'), nk) : blended('cl2', CITY.cl2, CITY.cl2N, nk), sp * 1.5, cb);
   drawCloudPatch(nk, sp); drawCloudWall(wk, nk, sp);
   // 7. sunset warmth + night grade
   if (dk > 0.01) { const g = ctx.createLinearGradient(0, 0, 0, H); const ok2 = oceanK(); g.addColorStop(0, `rgba(255,${120 + 40 * ok2 | 0},60,${0.28 * dk * (1 - 0.45 * ok2)})`); g.addColorStop(1, `rgba(140,40,120,${0.18 * dk * (1 - ok2)})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
@@ -1688,6 +1701,7 @@ const KIND = {
   cruiser: { hp: 110, r: 19, score: 2500, big: 1, solid: 1, hw: 16, hh: 24, shield: 50 }, interceptor: { hp: 4, r: 7, score: 200, big: 0, solid: 1 },
   beamturret: { hp: 26, r: 9, score: 600, big: 0, ground: 1 }, destroyer: { hp: 420, r: 30, score: 8000, big: 2, solid: 1, hw: 26, hh: 44 },
   carrier: { hp: 22, r: 13, score: 500, big: 1, solid: 1 }, warden: { hp: 45, r: 11, score: 1200, big: 1, solid: 1 },
+  gunboat: { hp: 16, r: 9, score: 450, big: 0, ground: 1 }, sub: { hp: 55, r: 12, score: 1800, big: 1, ground: 1 },   // v2.9 ocean set pieces
   missile: { hp: 2, r: 4, score: 50, big: 0, solid: 1 }, barrier: { hp: 1e9, r: 0, score: 0, big: 0, solid: 1, notgt: 1 },
 };
 const TELE = 16; let ORB_EVERY = 60;
@@ -1725,7 +1739,7 @@ function canFire(e) { return pl.alive && e.y > 8 && e.y < H * 0.66 && e.x > 4 &&
 function updEnemies() {
   const a = enemies.items;
   for (let i = 0; i < a.length; i++) {
-    const e = a[i]; if (!e.alive) continue; e.t++; if (e.flash > 0) e.flash--; if (e.sflash > 0) e.sflash--;
+    const e = a[i]; if (!e.alive) continue; e.t++; if (e.flash > 0) e.flash--; if (e.sflash > 0) e.sflash--; if (e.ground) { updSeaUnit(e); if (!e.alive) continue; }
     moveE(e);
     if (!e.alive) continue;
     e.hpM = Math.max(e.hpM || 0, e.hp);
@@ -1799,12 +1813,20 @@ function enemyDie(e, scored) {
   enemies.kill(e);
 }
 function isShip(e) { return e.kind !== 'mine' && e.kind !== 'missile' && e.kind !== 'barrier' && e.kind.slice(0, 3) !== 'ast'; }
+function drawSea(e, fl) {   // wake + surfacing/submerging fade
+  const sub = e.kind === 'sub', a = sub ? clamp(Math.min(e.t / 70, (e.p2 - e.t) / 50), 0.15, 1) : 1;
+  ctx.globalAlpha = 0.5 * a; ctx.fillStyle = '#e8f4ff'; for (let k = 1; k < 6; k++) { const w = 3 + k * 2.2; ctx.fillRect(Math.round(e.x - w / 2 - 2), Math.round(e.y + e.r + k * 4), 2, 2); ctx.fillRect(Math.round(e.x + w / 2), Math.round(e.y + e.r + k * 4), 2, 2); }
+  if (sub && e.t < 70) { ctx.globalAlpha = 0.6 * (1 - e.t / 70); ctx.strokeStyle = '#e8f4ff'; ctx.beginPath(); ctx.arc(e.x, e.y, 6 + e.t * 0.35, 0, TAU); ctx.stroke(); }
+  ctx.globalAlpha = a; blit(e.spr, e.x, e.y, fl); ctx.globalAlpha = 1;
+}
+function updSeaUnit(e) { if (e.kind !== 'sub') return; e.tgt = e.t > 50 && e.t < e.p2 - 30; if (e.t >= e.p2) enemies.kill(e); }
 function drawEnemies(groundPass) {
   const a = enemies.items;
   for (let i = 0; i < a.length; i++) {
     const e = a[i]; if (!e.alive || e.ground !== groundPass) continue;
     if (e.kind === 'barrier') { drawBarrier(e); continue; }
     const fl = e.flash > 0 && (e.big < 1 || (G.t & 2));
+    if (e.kind === 'gunboat' || e.kind === 'sub') { drawSea(e, fl); continue; }
     if (e.ground && e.kind !== 'beamturret' && G.stage === 1) { R(ctx, Math.round(e.x - 14), Math.round(e.y - 14), 28, 28, '#3a4252'); R(ctx, Math.round(e.x - 12), Math.round(e.y - 12), 24, 24, '#5a647a'); R(ctx, Math.round(e.x - 14), Math.round(e.y - 14), 28, 2, '#8a96b0'); }
     if (e.kind === 'ast1' || e.kind === 'ast2' || e.kind === 'ast3') { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(e.rot); ctx.drawImage(fl ? e.spr.flash : e.spr, -e.spr.width / 2, -e.spr.height / 2); ctx.restore(); continue; }
     if (e.kind === 'missile' || e.mv === 'dive' && e.locked) { blitRot(fl ? e.spr.flash : e.spr, e.x, e.y, e.ang - Math.PI / 2); }
@@ -1887,6 +1909,7 @@ function buildTimeline(si) {
 // ---- dynamic difficulty: threat follows weapon level (LV1 = 0 = original game), rises slowly, drops at once on death ----
 function thrTarget() { return clamp((G.wlv - 1) / (THR_LV - 1), 0, 1); }
 function updThreat() {
+  updSea();
   const t = thrTarget(); if (G.thr == null) G.thr = 0;
   if (G.thr < t) G.thr = Math.min(t, G.thr + 1 / (60 * 8 * (THR_LV - 1))); else G.thr = t;   // ~8 s per level to ramp up
   if (G.phase === 'waves' && G.thr > 0.12) {                                          // extra waves = higher spawn rate
@@ -1895,6 +1918,10 @@ function updThreat() {
   }
 }
 function thr() { return G.thr || 0; }
+// v2.9 ocean section: gunboats and surfacing subs
+WAVES.gunboats = L => { const s = rnd() < 0.5 ? 0.2 : 0.55; for (let i = 0; i < 3; i++) spawnE('gunboat', lane(s + i * 0.12), -20 - i * 34, 'ground', { p1: 0.7, vx: 0, gun: 'aim', gn: L > 2.5 ? 3 : 2, gt: 60 + i * 15, gi: gi(110, L), drop: i === 2 ? 'medal' : null }); };
+WAVES.sub = L => { spawnE('sub', lane(rr(0.25, 0.75)), rr(110, 190), 'ground', { p1: 0, vx: 0, p2: 380, gun: 'aimring', gn: 10, gt: 80, gi: gi(90, L), drop: rnd() < 0.5 ? 'medal' : 'bomb' }); };
+function updSea() { if (G.phase !== 'waves' || oceanK() < 1 || wallK() > 0) { G.seaT = 0; return; } G.seaT = (G.seaT || 0) + 1; if (G.seaT % 420 === 120) { (G.seaN = (G.seaN || 0) + 1) % 3 === 0 ? WAVES.sub(stageL()) : WAVES.gunboats(stageL()); } }
 function stageL() { return G.stage + G.progress + 2.2 * thr(); }
 function runTimeline() {
   if (G.phase !== 'waves') return;
@@ -1968,7 +1995,7 @@ function spawnBoss(id, mid) {
 let BOSS_BASE = 0.32, BOSS_K = 4.0; const BOSS_ADJ = [0.9, 1, 1, 1, 0.42];   // v2.2: bosses ~45-90 s at LV1-4, ~60-120 s at LV8
 function addPart(b, o) {
   const p = { isPart: true, boss: b, alive: true, tgt: true, solid: false, armor: 1, hp: 100, r: 10, hw: 0, hh: 0, ox: 0, oy: 0, x: b.x, y: b.y, flash: 0, shield: 0, smax: 0, sflash: 0, big: 2, bar: true, spr: null, fixed: false, core: false, score: 2000, tag: '', tn: 99, turret: false, ang: Math.PI / 2, i: 0 };
-  for (const k in o) p[k] = o[k]; if (p.hp < 1e8) { const f = BOSS_BASE * (BOSS_ADJ[G.stage] || 1) * (1 + BOSS_K * thr()) * danger(); p.hp *= f; p.shield *= f; } p.max = p.hp; p.smax = p.shield; if (!p.tgt) p.bar = false; b.parts.push(p); return p;
+  for (const k in o) p[k] = o[k]; if (p.hp < 1e8) { const f = BOSS_BASE * (BOSS_ADJ[G.stage] || 1) * (1 + BOSS_K * thr()) * (danger() > 1 ? 2 : 1); p.hp *= f; p.shield *= f; } p.max = p.hp; p.smax = p.shield; if (!p.tgt) p.bar = false; b.parts.push(p); return p;
 }
 function nAlive(b, tag) { let n = 0; for (const p of b.parts) if (p.alive && p.tag === tag) n++; return n; }
 function ev(b, n, o, p) { const k = (b.pt + (o || 0)) % n; if (p) p.tn = Math.min(p.tn, n - k); return k === 0; }
@@ -2196,7 +2223,7 @@ const UI = {
 const BOMB_BTN = { x: W - 30, y: H - 52, r: 21 };
 function newStats() { return { kills: 0, spawned: 0, deaths: 0, bombs: 0, items: 0, bosses: 0 }; }
 function newGame(stage) {
-  G.score = 0; G.lives = 2; G.bombs = 3; G.credits = 3; G.continues = 0; G.weapon = 'V'; G.wlv = 1; G.chips = 0; G.playT = 0; G.shipKills = 0; G.thr = 0; G.dangerT = 0; G.shield = 3; G.shieldFx = 0; G.shieldDropAt = 0; G.shieldDrops = 0; G.shieldHits = 0; G.mult = 1; G.medal = 500; G.nextExt = 0; G.deaths = 0;
+  G.score = 0; G.lives = 2; G.bombs = 3; G.credits = 3; G.continues = 0; G.weapon = 'V'; G.wlv = 1; G.chips = 0; G.playT = 0; G.shipKills = 0; G.thr = 0; G.dangerT = 0; G.slowmo = 0; G.hitCauseT = 0; G.shield = 3; G.shieldFx = 0; G.shieldDropAt = 0; G.shieldDrops = 0; G.shieldHits = 0; G.mult = 1; G.medal = 500; G.nextExt = 0; G.deaths = 0;
   G.tot = newStats(); playerReset(true); startStage(stage || 0); G.scene = 'play';
 }
 // ---- v2.4 save / continue (localStorage). Resume point: the same wave time in the same stage (bosses restart from their warning) ----
@@ -2223,7 +2250,7 @@ function clearWorld() { enemies.clear(); ebul.clear(); pshots.clear(); items.cle
 function startStage(i) {
   const S = STAGES[i]; G.stage = i; clearWorld(); G.tl = buildTimeline(i); G.tli = 0; G.waveT = 0; G.phase = 'waves'; G.progress = 0; G.phaseT = 0;
   G.scrollV = S.scroll; G.bs = S.bs; G.wallW = i === 3 ? 24 : 0; G.stats = newStats(); dropN = 0; bgInit(i); Snd.play(S.music);
-  G.banner = 'intro'; G.bannerT = 200; pl.x = W / 2; if (pl.alive) { pl.y = H + 20; pl.entering = 40; pl.inv = 60; }
+  G.banner = 'intro'; G.bannerT = 200; G.dangerT = 0; pl.x = W / 2; if (pl.alive) { pl.y = H + 20; pl.entering = 40; pl.inv = 60; }
 }
 function stageClear() {
   G.phase = 'clear'; G.clearT = 0; Snd.play('clear');
@@ -2288,7 +2315,7 @@ function step() {
   switch (G.scene) {
     case 'title': G.scrollPos += 0.6; menuUpdate(); if (G.t % 2 === 0) updParticles(); break;
     case 'options': case 'pause': case 'quit': menuUpdate(); break;
-    case 'play': updPlay(); break;
+    case 'play': if (G.slowmo > 0 && (G.slowmo-- & 1)) break; updPlay(); break;   // v2.9 brief slow-mo on death
     case 'continue':
       UI.contT--; updParticles(); G.scrollPos += 0.4;
       if (Input.pressed.fire || Input.pressed.start || Input.taps.length) { if (UI.contT < 590) doContinue(); }
@@ -2357,13 +2384,13 @@ function renderBackdrop() { const st = G.stage; G.stage = BG.cur < 0 ? 4 : BG.cu
 function renderPlay() {
   let ox = 0, oy = 0; if (Opts.shake && G.shake > 0.5) { ox = fr(-1, 1) * G.shake; oy = fr(-1, 1) * G.shake; }
   ctx.setTransform(S, 0, 0, S, ox * S, oy * S);
-  bgDraw(); wallsDraw(); drawEnemies(true); drawBoss(); drawItems(); drawEnemies(false); drawShots(); drawPlasma(); drawPlayer(); drawParticles(); drawLasers(); drawBullets();
+  bgDraw(); wallsDraw(); drawEnemies(true); drawBoss(); drawItems(); drawEnemies(false); drawShots(); drawPlasma(); drawPlayer(); drawParticles(); drawLasers(); drawBullets(); drawHitCause();
   ctx.setTransform(S, 0, 0, S, 0, 0);
   if (G.flash > 0 && Opts.shake) { ctx.fillStyle = 'rgba(255,255,255,' + (G.flash / 20) + ')'; ctx.fillRect(0, 0, W, H); }
   renderHUD();
 }
 function renderHUD() {
-  ctx.fillStyle = 'rgba(0,0,10,0.45)'; ctx.fillRect(0, 0, W, 21);
+  ctx.fillStyle = 'rgba(0,0,12,0.72)'; ctx.fillRect(0, 0, W, 31); ctx.fillStyle = 'rgba(0,0,12,0.35)'; ctx.fillRect(0, 31, W, 2);   // v2.9 solid top HUD panel
   text(String(G.score).padStart(8, '0'), 4, 3, '#ffffff', 1); text('HI ' + String(Math.max(G.hi, G.score)).padStart(8, '0'), W / 2 + 6, 3, '#ffd050', 1, 'c');
   const m = Math.floor(G.mult * 10) / 10, mc = m >= 6 ? '#ff4a6a' : m >= 3 ? '#ffb040' : m > 1 ? '#ffe880' : '#a0a8c0';
   text('X' + m.toFixed(1), 4, 12, mc, 1); const dec = clamp(1 - G.multIdle / 150, 0, 1); if (m > 1) { R(ctx, 30, 13, 30, 4, '#202434'); R(ctx, 30, 13, Math.round(30 * dec), 4, mc); }
@@ -2382,6 +2409,7 @@ function renderHUD() {
   text(WPN[w].name, 18, H - 13, wc, 1); text('LV' + G.wlv, 66, H - 13, G.wlv === MAXLV ? ((G.t >> 3) & 1 ? '#ffffff' : wc) : '#ffffff', 1);
   for (let i = 0; i < MAXLV; i++) R(ctx, 4 + i * 10, H - 20, 8, 3, i < G.wlv ? (i >= 8 ? ((G.t >> 3) & 1 ? '#ffffff' : '#ff4040') : wc) : '#303448');
   { const need = chipNeed(G.wlv), f = G.wlv >= MAXLV ? 1 : clamp((G.chips || 0) / need, 0, 1); R(ctx, 92, H - 13, 12, 7, '#202434'); R(ctx, 92, H - 13, Math.round(12 * f), 7, '#ff9a20'); }
+  if (G.dangerT > 0 && G.banner === 'intro' && G.bannerT > 0) G.bannerT = 0;   // v2.9: never overlap the stage banner
   if (G.dangerT > 0) { const k = G.dangerT, a = Math.min(1, k / 30, (210 - k) / 15), on = (k >> 3) & 1; ctx.globalAlpha = a; R(ctx, 0, H / 2 - 50, W, 74, 'rgba(70,0,12,0.72)'); R(ctx, 0, H / 2 - 50, W, 2, '#ff3040'); R(ctx, 0, H / 2 + 22, W, 2, '#ff3040');
     text('MAX POWER', W / 2, H / 2 - 38, '#ffffff', 2, 'c'); text('DANGER x3', W / 2, H / 2 - 8, on ? '#ff3040' : '#ffb0b0', 3, 'c'); ctx.globalAlpha = 1; }
   if (G.lvFlash > 0 && !(G.dangerT > 0)) { ctx.globalAlpha = G.lvFlash / 40; text('POWER UP!', W / 2, 96, wc, 2, 'c'); ctx.globalAlpha = 1; }
