@@ -2743,6 +2743,201 @@ function renderGameOver() {
   text('HI ' + Math.max(G.hi, G.score), W / 2, 278, '#ffd050', 1, 'c');
 }
 
+
+
+// ===== STRIKE v3.1: full enemy/boss redraw, boss damage, soft clouds, city street detail, richer day/night =====
+// detail(): smooth volume light + rim, no brick seams (sprites now carry their own panel lines)
+function detail(c) {
+  const x = c.getContext('2d'), w = c.width, h = c.height; if (w < 12 || h < 10) return; const d = x.getImageData(0, 0, w, h), p = d.data, o = new Uint8ClampedArray(p);
+  const S = (X, Y) => X >= 0 && Y >= 0 && X < w && Y < h && o[(Y * w + X) * 4 + 3] === 255 && !(o[(Y * w + X) * 4] === 10 && o[(Y * w + X) * 4 + 1] === 8 && o[(Y * w + X) * 4 + 2] === 22);
+  const cx = (w - 1) / 2;
+  for (let Y = 0; Y < h; Y++) for (let X = 0; X < w; X++) {
+    if (!S(X, Y)) continue; const i = (Y * w + X) * 4, lum = (o[i] + o[i + 1] + o[i + 2]) / 3; if (lum > 235) continue;
+    let k = 1.14 - 0.32 * (Y / h) - 0.14 * (X - cx) / (w / 2);
+    if (!S(X + 1, Y + 1) && S(X - 1, Y - 1)) k *= 0.8;
+    for (let q = 0; q < 3; q++) p[i + q] = Math.min(255, o[i + q] * k);
+  }
+  x.putImageData(d, 0, 0);
+}
+const K_ = '#0e1220', GL = '#d8f4ff';
+function lines(x, pts, col) { x.strokeStyle = col; x.lineWidth = 1; x.beginPath(); for (let i = 0; i < pts.length; i += 4) { x.moveTo(pts[i] + 0.5, pts[i + 1] + 0.5); x.lineTo(pts[i + 2] + 0.5, pts[i + 3] + 0.5); } x.stroke(); }
+function mlines(x, w, pts, col) { lines(x, pts, col); const q = pts.slice(); for (let i = 0; i < q.length; i += 2) q[i] = w - 1 - q[i]; lines(x, q, col); }
+Object.assign(DRAW, {
+  fighter: p => spr(18, 18, (x, w) => {   // forward-swept dart
+    M(x, w, [9, 17, 10.5, 13, 11, 3, 9, 0], p.a); M(x, w, [10.5, 5, 17, 0, 17.5, 3, 11, 10], p.b); M(x, w, [16, 0, 17.5, 0, 17.5, 4, 16, 3], p.c);
+    M(x, w, [10, 1, 13, 0, 13, 4, 10.5, 5], p.d); R(x, 8, 9, 2, 4, '#1a2a50'); R(x, 8, 9, 1, 2, GL); R(x, 8.5, 2, 1, 6, p.e); MR(x, w, 12, 3, 1, 1, p.g);
+  }),
+  interceptor: p => spr(16, 24, (x, w) => {   // needle with canards and twin booms
+    M(x, w, [8, 23, 9, 17, 9.5, 3, 8, 0], p.a); M(x, w, [9.5, 8, 15, 14, 15, 17, 9.5, 15], p.b); M(x, w, [11, 2, 12.5, 2, 12.5, 12, 11, 13], p.d);
+    M(x, w, [9, 18, 11, 17, 11, 19, 9, 20], p.b); M(x, w, [14, 13, 15.5, 13, 15.5, 18, 14, 17], p.c); R(x, 7, 13, 2, 4, '#1a2a50'); R(x, 7, 13, 1, 2, GL); R(x, 7.5, 3, 1, 9, p.e); MR(x, w, 11.5, 1, 1, 1, p.g);
+  }),
+  drone: p => spr(13, 13, (x) => { C(x, 6.5, 6.5, 6, K_); C(x, 6.5, 6.5, 5.2, p.b); for (let i = 0; i < 4; i++) { const a = i * TAU / 4 + 0.78; R(x, 6 + Math.cos(a) * 4.5, 6 + Math.sin(a) * 4.5, 1.5, 1.5, p.d); } C(x, 6.5, 6.5, 3.4, p.a); C(x, 6.5, 6.5, 2, p.g); R(x, 5, 4.5, 1, 1, '#ffffff'); }),
+  bomber: p => spr(28, 24, (x, w) => {   // flying wing with engine pods
+    M(x, w, [14, 23, 16, 19, 17, 3, 14, 0], p.a); M(x, w, [16, 6, 27, 11, 27, 15, 22, 16, 16, 17], p.b); M(x, w, [24, 10, 27, 11, 27, 15, 24, 15], p.c);
+    M(x, w, [18, 4, 21, 4, 21, 16, 18, 16], p.d); M(x, w, [18.5, 15, 20.5, 15, 20.5, 18, 18.5, 18], '#ff9040'); mlines(x, w, [17, 9, 26, 12, 17, 13, 26, 14], p.d);
+    R(x, 12, 15, 4, 5, '#1a2a50'); R(x, 13, 15, 1, 3, GL); R(x, 13, 2, 2, 12, p.e); R(x, 11, 6, 6, 1, p.d); R(x, 11, 10, 6, 1, p.d); MR(x, w, 25, 12, 1, 1, p.g);
+  }),
+  minelayer: p => spr(30, 24, (x, w) => {   // armoured tug with mine racks
+    M(x, w, [15, 23, 21, 21, 25, 14, 25, 5, 21, 1, 15, 0], p.a); M(x, w, [24, 6, 29, 7, 29, 17, 24, 18], p.b); M(x, w, [26.5, 8, 28, 8, 28, 16, 26.5, 16], p.d);
+    R(x, 9, 4, 12, 12, p.d); for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) { C(x, 11.5 + i * 3.5, 7 + j * 5, 1.4, p.c); }
+    R(x, 12, 17, 6, 4, '#1a2a50'); R(x, 13, 17, 1, 2, GL); mlines(x, w, [17, 2, 23, 6, 16, 19, 22, 17], p.b); MR(x, w, 27, 11, 1, 2, p.g);
+  }),
+  mine: p => spr(11, 11, (x) => { for (let i = 0; i < 8; i++) { const a = i * TAU / 8; R(x, 5 + Math.cos(a) * 4.4, 5 + Math.sin(a) * 4.4, 1.2, 1.2, '#c8ccd4'); } C(x, 5.5, 5.5, 3.6, p.d); C(x, 5.5, 5.5, 2.8, p.b); C(x, 5.5, 5.5, 1.3, '#ff3030'); R(x, 4, 3.5, 1, 1, '#ffffff'); }),
+  turret: p => spr(20, 20, (x) => { P(x, [6, 1, 14, 1, 19, 6, 19, 14, 14, 19, 6, 19, 1, 14, 1, 6], p.d); P(x, [6.5, 2, 13.5, 2, 18, 6.5, 18, 13.5, 13.5, 18, 6.5, 18, 2, 13.5, 2, 6.5], p.b);
+    for (const [a, b] of [[4, 4], [15, 4], [4, 15], [15, 15]]) R(x, a, b, 1, 1, p.e); C(x, 10, 10, 6, K_); C(x, 10, 10, 5.2, p.a); C(x, 9, 9, 2.5, p.e); R(x, 9, 15, 2, 2, p.g); }),
+  launcher: p => spr(22, 24, (x) => {   // tracked SAM launcher
+    for (const X0 of [1, 17]) { R(x, X0, 1, 4, 22, K_); R(x, X0, 2, 4, 20, p.d); for (let i = 3; i < 22; i += 3) R(x, X0, i, 4, 1, '#000'); }
+    R(x, 5, 3, 12, 18, p.b); R(x, 6, 4, 10, 16, p.a); for (let i = 0; i < 3; i++) { R(x, 7 + i * 3, 6, 2, 9, p.d); C(x, 8 + i * 3, 15, 1, p.c); } R(x, 7, 17, 8, 2, p.d); R(x, 8, 4, 6, 1, p.e);
+  }),
+  beamturret: p => spr(20, 20, (x) => { P(x, [4, 1, 16, 1, 19, 4, 19, 16, 16, 19, 4, 19, 1, 16, 1, 4], p.d); R(x, 3, 3, 14, 14, p.b); R(x, 4, 4, 12, 3, p.e);
+    for (let i = 0; i < 3; i++) R(x, 5 + i * 4, 8, 2, 5, p.d); C(x, 10, 13, 4.5, K_); C(x, 10, 13, 3.4, '#ff3a8a'); C(x, 10, 13, 1.6, '#ffe0f0'); R(x, 2, 2, 1, 1, '#ffffff'); }),
+  gunship: p => spr(38, 32, (x, w) => {   // heavy gunship: twin rotors pods, chin gun
+    M(x, w, [19, 31, 23, 27, 25, 8, 22, 2, 19, 1], p.a); M(x, w, [24, 10, 36, 13, 36, 21, 25, 23], p.b); M(x, w, [30, 9, 36, 9, 36, 25, 30, 25], p.d);
+    C(x, 33, 17, 4.5, K_); C(x, 33, 17, 3.5, p.d); R(x, 31, 16, 4, 2, p.e); C(x, 4, 17, 4.5, K_); C(x, 4, 17, 3.5, p.d); R(x, 2, 16, 4, 2, p.e);
+    R(x, 15, 21, 8, 6, '#1a2a50'); R(x, 16, 21, 2, 3, GL); R(x, 17, 27, 4, 4, K_); R(x, 18.5, 27, 1, 5, p.e); R(x, 15, 6, 8, 3, p.d); R(x, 18, 3, 2, 17, p.e);
+    mlines(x, w, [20, 10, 24, 10, 20, 16, 24, 16, 26, 12, 30, 13], p.d); MR(x, w, 35, 12, 1, 1, p.g); MR(x, w, 23, 4, 1, 1, p.c);
+  }),
+  carrier: p => spr(32, 26, (x, w) => {   // supply carrier with cargo pods
+    M(x, w, [16, 25, 22, 22, 25, 7, 20, 1, 16, 0], '#e8e4d8'); M(x, w, [16, 3, 20, 4, 22, 9, 21, 20, 16, 23], '#c8c2b0'); M(x, w, [24, 8, 31, 10, 31, 18, 24, 20], '#ff8a24'); M(x, w, [26, 9, 29, 9.5, 29, 18.5, 26, 19], '#ffb060');
+    R(x, 12, 6, 8, 11, '#3a3a40'); R(x, 13, 7, 6, 4, '#ffd040'); R(x, 13, 12, 6, 4, '#40c0ff'); R(x, 14, 19, 4, 3, '#1a2a50'); R(x, 15, 19, 1, 2, GL); MR(x, w, 29, 13, 1, 2, '#ffffff');
+  }),
+  warden: p => spr(26, 26, (x) => { for (let i = 0; i < 6; i++) { const a = i * TAU / 6; C(x, 13 + Math.cos(a) * 8.5, 13 + Math.sin(a) * 8.5, 4.6, K_); C(x, 13 + Math.cos(a) * 8.5, 13 + Math.sin(a) * 8.5, 3.8, p.b); C(x, 12.5 + Math.cos(a) * 8.5, 12.5 + Math.sin(a) * 8.5, 1.6, p.e); }
+    C(x, 13, 13, 7.5, K_); C(x, 13, 13, 6.6, p.a); for (let i = 0; i < 6; i++) { const a = i * TAU / 6 + 0.5; R(x, 12.5 + Math.cos(a) * 5, 12.5 + Math.sin(a) * 5, 1, 1, p.d); } C(x, 13, 13, 3.6, '#2a0a10'); C(x, 13, 13, 2.6, p.c); C(x, 12, 12, 1, '#ffffff'); }),
+  missile: p => spr(8, 14, (x) => { R(x, 2.5, 1, 3, 10, '#d8dce4'); R(x, 2.5, 1, 1, 10, '#ffffff'); R(x, 2.5, 10, 3, 3, '#ff3030'); R(x, 0, 2, 2, 3, p.d); R(x, 6, 2, 2, 3, p.d); R(x, 0, 8, 2, 2, p.d); R(x, 6, 8, 2, 2, p.d); R(x, 3, 0, 2, 1, '#ffb040'); }),
+  cruiser: p => spr(42, 54, (x, w) => {   // armoured cruiser: stepped hull, twin turrets, engine block
+    M(x, w, [21, 53, 26, 46, 29, 36, 30, 12, 27, 4, 21, 1], p.a); M(x, w, [29, 16, 40, 20, 40, 36, 29, 40], p.b); M(x, w, [35, 17, 40, 18, 40, 38, 35, 39], p.d);
+    M(x, w, [23, 5, 26, 6, 27, 12, 23, 12], p.d); for (let i = 0; i < 3; i++) M(x, w, [24, 6 + i * 2, 26, 6 + i * 2, 26, 7 + i * 2, 24, 7 + i * 2], '#ff9040');
+    R(x, 14, 13, 14, 10, p.d); R(x, 15, 14, 12, 8, p.b); R(x, 16, 15, 10, 2, p.e); C(x, 21, 32, 6, K_); C(x, 21, 32, 5, p.d); C(x, 21, 32, 3.2, p.g); R(x, 20, 38, 2, 8, p.e);
+    for (const yy of [26, 42]) { C(x, 21, yy, 0, p.a); } MR(x, w, 31, 24, 5, 5, K_); MR(x, w, 32, 25, 3, 3, p.e); MR(x, w, 33.5, 29, 1, 5, p.d);
+    mlines(x, w, [22, 10, 29, 12, 22, 44, 27, 40, 30, 32, 40, 32], p.d); MR(x, w, 39, 24, 1, 6, p.c); MR(x, w, 25, 49, 1, 1, p.g);
+  }),
+  destroyer: p => spr(66, 100, (x, w) => {   // battle destroyer: long hull, bridge tower, four gun turrets, side sponsons, exhaust bank
+    M(x, w, [33, 99, 40, 92, 45, 80, 48, 30, 45, 8, 39, 2, 33, 1], p.a); M(x, w, [33, 4, 38, 6, 42, 12, 44, 30, 42, 82, 38, 90, 33, 95], p.e);
+    M(x, w, [33, 6, 37, 8, 40, 14, 41, 30, 40, 80, 37, 88, 33, 92], p.a);
+    M(x, w, [46, 28, 60, 34, 62, 40, 62, 62, 58, 68, 46, 72], p.b); M(x, w, [54, 33, 62, 37, 62, 62, 54, 66], p.d); for (let i = 0; i < 5; i++) M(x, w, [56, 39 + i * 5, 61, 39 + i * 5, 61, 41 + i * 5, 56, 41 + i * 5], p.c);
+    M(x, w, [36, 2, 40, 2, 40, 9, 36, 9], p.d); for (let i = 0; i < 3; i++) R(x, 27 + i * 4, 3, 3, 5, '#ff9040');
+    R(x, 24, 38, 18, 22, K_); R(x, 25, 39, 16, 20, p.b); R(x, 26, 40, 14, 3, p.e); R(x, 27, 44, 12, 6, '#1a2a50'); R(x, 28, 45, 10, 2, GL); R(x, 32, 51, 2, 7, p.d); C(x, 33, 34, 2, p.c);
+    for (const yy of [18, 28, 66, 76]) { C(x, 33, yy, 4.6, K_); C(x, 33, yy, 3.8, p.d); C(x, 32.5, yy - 0.5, 1.6, p.e); R(x, 32.5, yy + 3, 1, 5, K_); }
+    mlines(x, w, [38, 14, 44, 16, 38, 84, 43, 82, 41, 24, 41, 76, 46, 50, 61, 50], p.d); MR(x, w, 45, 22, 1, 1, p.g); MR(x, w, 45, 84, 1, 1, p.g); R(x, 32.5, 85, 1, 12, p.e);
+  }),
+  sentinel: p => spr(64, 60, (x, w) => {   // elite sentinel: crescent armour around a reactor eye, wing blades
+    M(x, w, [32, 59, 42, 54, 50, 44, 54, 28, 50, 12, 42, 4, 32, 1], p.a); M(x, w, [32, 4, 41, 7, 48, 14, 51, 28, 48, 42, 41, 51, 32, 55], p.b);
+    M(x, w, [50, 16, 63, 22, 63, 26, 56, 30, 63, 36, 63, 42, 51, 46], p.d); M(x, w, [52, 19, 61, 23, 61, 25, 54, 28], p.e); M(x, w, [54, 34, 61, 37, 61, 40, 53, 42], p.c);
+    C(x, 32, 30, 15, K_); C(x, 32, 30, 13.5, p.d); for (let i = 0; i < 12; i++) { const a = i * TAU / 12; R(x, 31.5 + Math.cos(a) * 11, 29.5 + Math.sin(a) * 11, 1.4, 1.4, p.c); }
+    C(x, 32, 30, 8.5, '#200410'); C(x, 32, 30, 6.5, p.c); C(x, 32, 30, 3.8, p.g); C(x, 30, 28, 1.5, '#ffffff');
+    mlines(x, w, [36, 8, 46, 14, 36, 52, 45, 46, 48, 24, 51, 30], p.d); R(x, 31, 2, 2, 12, p.e); R(x, 31, 46, 2, 10, p.e); MR(x, w, 62, 24, 1, 1, p.g);
+  }),
+});
+// boss bodies: greeble pass (hatches, vents, rivet rows, running lights) on hand-drawn hulls
+function greeble(c, seed, light) {
+  const x = c.getContext('2d'), w = c.width, h = c.height, d = x.getImageData(0, 0, w, h).data, r = lcg(seed);
+  const solid = (X, Y) => { X |= 0; Y |= 0; if (X < 0 || Y < 0 || X >= w || Y >= h) return false; const i = (Y * w + X) * 4; return d[i + 3] === 255 && !(d[i] === 10 && d[i + 1] === 8 && d[i + 2] === 22); };
+  const box = (X, Y, a, b) => solid(X, Y) && solid(X + a, Y) && solid(X, Y + b) && solid(X + a, Y + b) && solid(X + a / 2, Y + b / 2);
+  const n = (w * h) / 700 | 0;
+  for (let i = 0; i < n; i++) { const X = (r() * w) | 0, Y = (r() * h) | 0, t = r();
+    if (t < 0.35 && box(X, Y, 6, 4)) { x.fillStyle = 'rgba(0,0,0,0.35)'; x.fillRect(X, Y, 6, 4); x.fillStyle = 'rgba(255,255,255,0.18)'; x.fillRect(X, Y, 6, 1); for (let k = 1; k < 4; k += 2) { x.fillStyle = 'rgba(0,0,0,0.4)'; x.fillRect(X + 1, Y + k, 4, 1); } }   // vent
+    else if (t < 0.6 && box(X, Y, 5, 5)) { x.fillStyle = 'rgba(0,0,0,0.25)'; x.fillRect(X, Y, 5, 5); x.fillStyle = 'rgba(255,255,255,0.14)'; x.fillRect(X + 1, Y + 1, 3, 3); }   // hatch
+    else if (t < 0.8 && box(X, Y, 10, 1)) { for (let k = 0; k < 10; k += 3) { x.fillStyle = "rgba(255,255,255,0.12)"; x.fillRect(X + k, Y, 1, 1); } }   // rivet row
+    else if (t < 0.88 && box(X, Y, 2, 2)) { x.fillStyle = light || '#ffd060'; x.fillRect(X, Y, 1, 1); }   // running light
+    else if (box(X, Y, 12, 2)) { x.fillStyle = 'rgba(0,0,0,0.3)'; x.fillRect(X, Y, 12, 1); x.fillStyle = 'rgba(255,255,255,0.12)'; x.fillRect(X, Y + 1, 12, 1); }   // panel seam
+  }
+  c.flash = silhouette(c, '#ffffff');
+}
+const _mbs = makeBossSprites;
+makeBossSprites = function () { _mbs(); let s = 11; for (const k of ['hawk', 'bastion', 'lev', 'asc', 'sphere', 'haloHub', 'trueBody', 'kestrel', 'minecr', 'aegis', 'wardog', 'sentinel', 'hawkEng', 'bay', 'bridge', 'pod', 'plate']) if (BS[k]) greeble(BS[k], s++, k === 'asc' || k === 'sphere' || k === 'trueBody' ? '#80ffe0' : '#ffd060'); };
+// ---- boss damage: blown-off plates exposing glowing internals, fire, sparks, smoke ----
+const DMG = new Map();
+function dmgHoles(s, n, seed) {   // positions inside the sprite's solid area, cached per sprite
+  let L = DMG.get(s); if (L && L.length >= n) return L; const w = s.width, h = s.height, d = s.getContext('2d').getImageData(0, 0, w, h).data, r = lcg(seed + w * 7 + h); L = [];
+  for (let tries = 0; tries < 400 && L.length < 8; tries++) { const X = 3 + r() * (w - 6), Y = 3 + r() * (h - 6), i = ((Y | 0) * w + (X | 0)) * 4; if (d[i + 3] !== 255) continue; if (L.some(q => Math.abs(q[0] - X) < w * 0.18 && Math.abs(q[1] - Y) < h * 0.18)) continue; L.push([X - w / 2, Y - h / 2, (0.12 + r() * 0.1) * Math.min(w, h), r()]); }
+  DMG.set(s, L); return L;
+}
+const HOLE = new Map();
+function holeSpr(r, ph, hot) { const key = (r * 2 | 0) + ':' + (ph * 99 | 0) + ':' + hot; let c = HOLE.get(key); if (c) return c; const R = Math.ceil(r) + 2, x = (c = mkC(R * 2, R * 2)).getContext('2d'), pts = [];
+  for (let i = 0; i < 9; i++) { const a = i * TAU / 9, rr = r * (0.7 + 0.3 * Math.sin(i * 2.7 + ph * 9)); pts.push(R + Math.cos(a) * rr, R + Math.sin(a) * rr * 0.8); }
+  const path = () => { x.beginPath(); x.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) x.lineTo(pts[i], pts[i + 1]); x.closePath(); };
+  path(); x.fillStyle = '#100608'; x.fill(); x.save(); path(); x.clip(); x.drawImage(glow(hot ? '#ff6a10' : '#ff9a30'), R - r * 1.1, R - r * 1.1, r * 2.2, r * 2.2);
+  x.globalAlpha = 0.85; x.fillStyle = hot ? '#ffd060' : '#40e0ff'; for (let k = -2; k <= 2; k++) { x.fillRect(0, R + k * r * 0.35, R * 2, 1); x.fillRect(R + k * r * 0.35, 0, 1, R * 2); } x.restore();
+  x.globalAlpha = 0.9; x.strokeStyle = '#ff8a30'; path(); x.stroke(); HOLE.set(key, c); return c; }
+function drawHole(cx, cy, r, ph, hot) { const c = holeSpr(r, ph, hot); ctx.drawImage(c, (cx - c.width / 2) | 0, (cy - c.height / 2) | 0);
+  ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35 + 0.3 * Math.sin(G.t * 0.25 + ph * 6); ctx.drawImage(glow('#ff6a10'), cx - r, cy - r, r * 2, r * 2); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
+function bossDamageFx(b) {
+  let hp = 0, mx = 0; for (const p of b.parts) if (p.bar) { hp += Math.max(0, p.alive ? p.hp : 0); mx += p.max || 0; }
+  const bk = mx > 0 ? 1 - hp / mx : 0;
+  if (b.body && bk > 0.25) { const L = dmgHoles(b.body, 8, 3), n = Math.min(L.length, Math.floor((bk - 0.25) * 11)); for (let i = 0; i < n; i++) { const q = L[i], X = b.x + q[0], Y = b.y + (b.bodyOy || 0) + q[1]; drawHole(X, Y, q[2] * 0.55, q[3], bk > 0.7);
+      if (((G.t + i * 13) & 31) === 0) part(2, X, Y, fr(-0.2, 0.2), -0.5, 60, fr(5, 9), 'd'); if (bk > 0.55 && ((G.t + i * 7) % 17) === 0) sparks(X, Y, 2, '#ffd080', 2.2, 10);
+      if (bk > 0.6) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5 + 0.4 * Math.random(); const fr2 = q[2] * 0.6; ctx.drawImage(glow('#ff6a10'), X - fr2, Y - fr2 * 1.8, fr2 * 2, fr2 * 2.4); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; } } }
+  for (const p of b.parts) { if (!p.alive || !p.spr || !(p.max > 0) || p.hp >= p.max * 0.65) continue; const k = 1 - p.hp / p.max, s = p.spr;
+    const L = dmgHoles(s, 3, 9), n = Math.min(L.length, k > 0.75 ? 3 : k > 0.5 ? 2 : 1); for (let i = 0; i < n; i++) drawHole(p.x + L[i][0], p.y + L[i][1], Math.max(2.5, L[i][2] * 0.7), L[i][3], k > 0.75);
+    if ((G.t + p.x | 0) % (k > 0.7 ? 5 : 11) === 0) sparks(p.x + fr(-4, 4), p.y + fr(-4, 4), 3, '#ffd080', 2.4, 10);
+    if (k > 0.6 && (G.t & 7) === 0) part(2, p.x, p.y, fr(-0.2, 0.2), -0.6, 50, fr(4, 7), 'd');
+  }
+}
+// ---- soft volumetric clouds: shaded blobs, then blurred (padded so the tile still wraps) ----
+function softC(src, pad, blur) { const c = mkC(src.width, src.height - pad * 2), x = c.getContext('2d'); x.filter = 'blur(' + blur + 'px)'; x.drawImage(src, 0, -pad); x.filter = 'none'; return c; }
+function genClouds(night, seedv, n, scale, cover) {
+  const TH = CITY.TH, PAD = 24, c = mkC(W, TH + PAD * 2), x = c.getContext('2d'), r = lcg(seedv), blobs = [];
+  for (let i = 0; i < n; i++) { const cx = r() * W, cy = r() * TH, k = (0.6 + r()) * scale; for (let j = 0; j < 12; j++) blobs.push([cx + (r() - 0.5) * 72 * k, cy + (r() - 0.5) * 24 * k, (6 + r() * 13) * k]); }
+  x.translate(0, PAD); for (const dy of [-TH, 0, TH]) cloudShade(x, blobs, dy, night ? CL_N : CL_D);
+  if (night) { x.globalCompositeOperation = 'source-atop'; for (const b of blobs) if (r() < cover * 0.5) { x.globalAlpha = 0.05; for (const dy of [-TH, 0, TH]) C(x, b[0] + 2, b[1] + dy + 6, b[2] * 0.8, ['#ff3ab0', '#30c0ff', '#a050ff'][(b[2] * 7 | 0) % 3]); } x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'; }
+  return softC(c, PAD, 2.6 * Math.max(1, scale * 0.8));
+}
+function genCloudMass(w, h, seedv, n, night) {
+  const PAD = 16, c = mkC(w, h + PAD * 2), x = c.getContext('2d'), r = lcg(seedv), blobs = [];
+  for (let i = 0; i < n; i++) { const a = r() * TAU, d = Math.sqrt(r()); blobs.push([w / 2 + Math.cos(a) * d * w * 0.42, h / 2 + Math.sin(a) * d * h * 0.36, (0.25 + r() * 0.4) * Math.min(w, h) * 0.3]); }
+  x.translate(0, PAD); cloudShade(x, blobs, 0, night ? ['#10142a', '#1a2040', '#242c50', '#303a64', '#3e4878', '#4e5a8c'] : CL_D); return softC(c, PAD, 4);
+}
+// ---- city: road markings, rooftop clutter, street lamps + windows that switch on through dusk ----
+const CX = { lamps: [], win: [] };
+function cityDecor() {
+  const TH = CITY.TH, r = lcg(CITY.seed * 13 + 1);
+  for (const [img, night] of [[CITY.far, 0], [CITY.farN, 1]]) { const x = img.getContext('2d');
+    for (const s of CITY.streets) { if (s[0]) { for (let y = 0; y < TH; y += 8) { x.fillStyle = night ? 'rgba(200,170,90,0.18)' : 'rgba(240,230,190,0.55)'; x.fillRect(s[1] - 0.5, y, 1, 3); } } else { for (let X = 0; X < W; X += 8) { x.fillStyle = night ? 'rgba(200,170,90,0.18)' : 'rgba(240,230,190,0.55)'; x.fillRect(X, s[1] - 0.5, 3, 1); } } }
+    for (const a of CITY.streets) if (a[0]) for (const b of CITY.streets) if (!b[0]) { const X = a[1], Y = b[1]; x.fillStyle = night ? 'rgba(180,180,200,0.2)' : 'rgba(255,255,255,0.6)'; for (let k = -1; k <= 1; k++) { x.fillRect(X - 5, Y + k * 1.5 - 0.5, 2, 1); x.fillRect(X + 3, Y + k * 1.5 - 0.5, 2, 1); } }   // crosswalks
+  }
+  for (const [img, night] of [[CITY.tow, 0], [CITY.towN, 1]]) { const x = img.getContext('2d'), w = img.width, h = img.height, d = x.getImageData(0, 0, w, h).data, rr = lcg(CITY.seed * 7 + 3);
+    const roof = (X, Y) => { const i = (Y * w + X) * 4; return d[i + 3] === 255; };
+    for (let i = 0; i < 700; i++) { const X = 2 + (rr() * (w - 8)) | 0, Y = 2 + (rr() * (h - 8)) | 0, t = rr(); if (!(roof(X, Y) && roof(X + 4, Y) && roof(X, Y + 4) && roof(X + 4, Y + 4))) continue;
+      const i0 = (Y * w + X) * 4, i1 = ((Y + 4) * w + X + 4) * 4; if (Math.abs(d[i0] - d[i1]) + Math.abs(d[i0 + 1] - d[i1 + 1]) > 30) continue;   // flat roof only
+      if (t < 0.5) { x.fillStyle = night ? '#1a1c28' : 'rgba(0,0,0,0.3)'; x.fillRect(X + 1, Y + 1, 3, 3); x.fillStyle = night ? '#3a3e52' : '#d0d4dc'; x.fillRect(X, Y, 3, 3); x.fillStyle = night ? '#2a2e40' : '#8a8e98'; x.fillRect(X + 1, Y + 1, 1, 1); }   // AC unit
+      else if (t < 0.7) { x.fillStyle = night ? '#141620' : 'rgba(0,0,0,0.3)'; x.beginPath(); x.arc(X + 2.5, Y + 2.5, 2, 0, TAU); x.fill(); x.fillStyle = night ? '#4a3a30' : '#a87a50'; x.beginPath(); x.arc(X + 2, Y + 2, 1.8, 0, TAU); x.fill(); }   // water tank
+      else if (t < 0.85) { x.fillStyle = night ? '#203040' : '#5a7aa0'; x.fillRect(X, Y, 4, 2); x.fillStyle = night ? '#304860' : '#8ab0d8'; x.fillRect(X, Y, 4, 1); }   // skylight / solar
+      else { x.fillStyle = night ? '#202430' : '#707480'; x.fillRect(X, Y, 1, 4); }   // antenna
+      if (!night && t > 0.3) CX.win.push([X + 2, Y + 2]); }
+  }
+  BLEND_RESET();
+  for (const s of CITY.streets) { const L = s[0] ? TH : W; for (let p = 4 + (r() * 10 | 0); p < L; p += 20) { const side = r() < 0.5 ? -3 : 3; CX.lamps.push(s[0] ? [s[1] + side, p, r()] : [p, s[1] + side, r()]); } }
+  CX.lt = [0, 1, 2, 3].map(q => { const c = mkC(W, TH), x = c.getContext('2d'); x.globalCompositeOperation = 'lighter';
+    for (const l of CX.lamps) if (((l[2] * 4) | 0) === q) { x.globalAlpha = 0.55; x.drawImage(glow('#ffc870'), l[0] - 5, l[1] - 5, 10, 10); x.globalAlpha = 1; x.fillStyle = '#fff4d0'; x.fillRect(l[0] - 0.5, l[1] - 0.5, 1, 1); } return c; });
+  CX.wt = [0, 1, 2, 3].map(q => { const c = mkC(W, TH), x = c.getContext('2d'); let i = 0; for (const p of CX.win) { if ((i++ & 3) !== q) continue; x.fillStyle = i % 5 ? '#ffd890' : '#d8f0ff'; x.fillRect(p[0], p[1], 1, 1); x.globalAlpha = 0.35; x.fillRect(p[0] - 1, p[1], 3, 1); x.globalAlpha = 1; } return c; });
+}
+function cumul(A) { const out = []; for (let q = 0; q < 4; q++) { const c = mkC(W, CITY.TH), x = c.getContext('2d'); for (let k = 0; k <= q; k++) x.drawImage(A[k], 0, 0); out.push(c); } return out; }
+function BLEND_RESET() { for (const k in BLEND) delete BLEND[k]; }
+const _cdec = cityDecor; cityDecor = function () { _cdec(); CX.lc = cumul(CX.lt); CX.wc = cumul(CX.wt); CX.one = [CX.lt, CX.wt];
+  for (const [dst, src, a] of [[CITY.farN, CX.lc[3], 0.9], [CITY.towN, CX.wc[3], 0.5]]) { const x = dst.getContext('2d'); x.globalCompositeOperation = 'lighter'; x.globalAlpha = a; x.drawImage(src, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'; } BLEND_RESET(); };
+const _ci = cityInit; cityInit = function (s) { const before = CITY.seed; _ci(s); if (CITY.seed !== before || !CX.lt) { CX.lamps = []; CX.win = []; cityDecor(); } };
+function lightsOn() { const p = cycSec(); return p < DAWN_FROM ? smooth(DUSK_FROM - 10, NIGHT_AT + 5, p) : 1 - smooth(DAWN_FROM + 5, DAY_CYCLE - 2, p); }
+const _cd = CITY_DRAW;
+CITY_DRAW = function (sp, nk, dk, t, TH, farPos, towPos) {
+  _cd(sp, nk, dk, t, TH, farPos, towPos); if (!CX.lt) return; const lk = lightsOn() * (1 - nk); if (lk <= 0.01) return;
+  ctx.globalCompositeOperation = 'lighter'; const f = lk * 4, q = 0 ? 4 : Math.min(3, Math.floor(f)), fr_ = q === 4 ? 0 : f - q;
+  const lt = (A, pos, m) => { if (q > 0) tileL(A[q - 1], pos, m); if (fr_ > 0.02 && q < 4) tileL(A[q] === A[q - 1] ? A[q] : CX.one[A === CX.lc ? 0 : 1][q], pos, fr_ * m); };
+  lt(CX.lc, farPos, 0.8); lt(CX.wc, towPos, 0.8);
+  ctx.globalCompositeOperation = 'source-over';
+};
+// ---- richer day/night: layered sunset sky light, sun glare, stars at night ----
+const STARS = []; { const r = lcg(2026); for (let i = 0; i < 160; i++) STARS.push([r() * W, r() * 1000, r(), r() < 0.15]); }
+const _bgd = bgDraw;
+bgDraw = function () {
+  _bgd(); const dk = duskK(), nk = nightK(), t = G.t, ok = oceanK();
+  if (dk > 0.01) { const g = ctx.createLinearGradient(0, 0, W * 0.3, H); g.addColorStop(0, `rgba(255,200,90,${0.22 * dk})`); g.addColorStop(0.45, `rgba(255,90,110,${0.14 * dk})`); g.addColorStop(1, `rgba(90,40,150,${0.16 * dk})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.45 * dk; ctx.drawImage(glow('#ffb040'), -120, -150, 300, 300); ctx.globalAlpha = 0.25 * dk; ctx.drawImage(glow('#ff6a50'), -200, -120, 520, 380); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
+  if (nk > 0.05 && ok > 0.2) { if (!STARS.c) STARS.c = [0, 1].map(h => { const c = mkC(W, 1000), x = c.getContext('2d'); for (const s of STARS) if ((s[2] * 10 | 0) % 2 === h) { x.fillStyle = s[3] ? '#ffe8c0' : '#dfe8ff'; x.fillRect(s[0] | 0, s[1] | 0, 1, 1); if (s[3]) { x.globalAlpha = 0.5; x.fillRect((s[0] | 0) - 1, s[1] | 0, 3, 1); x.fillRect(s[0] | 0, (s[1] | 0) - 1, 1, 3); x.globalAlpha = 1; } } return c; });
+    const off = ((G.scrollPos || 0) * (ok > 0.5 ? 0.32 : 0.05)) % 1000, base = nk * ok * 0.6; ctx.globalCompositeOperation = 'lighter';
+    for (let h = 0; h < 2; h++) { ctx.globalAlpha = base * (0.55 + 0.45 * Math.sin(t * 0.05 + h * 3.1)); const y = off - 1000; ctx.drawImage(STARS.c[h], 0, y | 0); ctx.drawImage(STARS.c[h], 0, (y + 1000) | 0); }
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
+};
+
 boot();
 
 </script></body></html>
