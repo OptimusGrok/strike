@@ -740,8 +740,9 @@ function chipNeed(lv) { return CHIP_A + lv * CHIP_B; }
 let CHIP_A = 30, CHIP_B = 40;   // v2.2: ~7 min to LV8
 function bounds() { const m = G.stage === 3 ? G.wallW : 0; return { l: m + 8, r: W - m - 8 }; }
 
+const SHIELD_MAX = 3, SHIELD_INV = 90, SHIELD_DROP_SEC = 32;
 function playerReset(full) {
-  pl.x = W / 2; pl.y = H + 20; pl.alive = true; pl.inv = 170; pl.entering = 40; pl.bank = 0; pl.beamOn = false; pl.fireT = 0; pl.misT = 0;
+  pl.x = W / 2; pl.y = H + 20; pl.alive = true; pl.inv = 170; pl.entering = 40; G.shield = SHIELD_MAX; G.shieldFx = 0; pl.bank = 0; pl.beamOn = false; pl.fireT = 0; pl.misT = 0;
   if (full) { G.weapon = 'V'; G.wlv = 1; }
 }
 function updPlayer() {
@@ -890,6 +891,7 @@ const ITEM_COL = { R: '#ff3a2a', B: '#2a8aff', P: '#b040ff' };
 const ITEM_SPR = {};
 function makeItems() {
   for (const k of ['R', 'B', 'P']) ITEM_SPR[k] = spr(16, 16, x => { C(x, 8, 8, 7, '#ffffff'); C(x, 8, 8, 6, ITEM_COL[k]); C(x, 6, 6, 2, 'rgba(255,255,255,0.8)'); });
+  ITEM_SPR.shield = spr(15, 15, x => { const hx = (r, c) => { const p = []; for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + Math.PI / 6; p.push(7.5 + Math.cos(a) * r, 7.5 + Math.sin(a) * r); } P(x, p, c); }; hx(7.4, '#ffffff'); hx(6.2, '#20b8e0'); hx(4.4, '#60f0ff'); R(x, 6, 4, 3, 7, '#ffffff'); R(x, 4, 6, 7, 3, '#ffffff'); });
   ITEM_SPR.bomb = spr(12, 16, x => { R(x, 1, 2, 10, 12, '#30d060'); R(x, 2, 3, 8, 10, '#1a8a3a'); R(x, 3, 1, 6, 2, '#a0ffb0'); });
   ITEM_SPR.medal = spr(12, 14, x => { C(x, 6, 7, 5.5, '#ffd040'); C(x, 6, 7, 3.5, '#c08a10'); R(x, 5, 4, 2, 6, '#fff0a0'); });
   ITEM_SPR.chip = spr(11, 11, x => { P(x, [5.5, 0, 11, 5.5, 5.5, 11, 0, 5.5], '#ffffff'); P(x, [5.5, 1.5, 9.5, 5.5, 5.5, 9.5, 1.5, 5.5], '#ff9a20'); P(x, [5.5, 2.5, 7.5, 4.5, 5.5, 5.5, 3.5, 4.5], '#fff0a0'); });
@@ -930,6 +932,7 @@ function collect(it) {
   } else if (ty === 'chip') {
     G.chips = (G.chips || 0) + (it.v || 1); Snd.sfx('pickup'); part(7, pl.x, pl.y, 0, 0, 8, 10, '#ffb040');
     while (G.chips >= chipNeed(G.wlv)) { G.chips -= chipNeed(G.wlv); const was = G.wlv; levelUp(it); if (G.wlv === was) { G.chips = 0; break; } }
+  } else if (ty === 'shield') { if ((G.shield || 0) < SHIELD_MAX) { G.shield = (G.shield || 0) + 1; UI.toast('SHIELD ' + G.shield + '/3', '#60f0ff'); } else { addScore(2000, it.x, it.y); UI.toast('SHIELD FULL +2000', '#60f0ff'); } G.shieldFx = Math.max(G.shieldFx || 0, 18); Snd.sfx('bombitem'); part(3, pl.x, pl.y, 0, 0, 22, 26, '#60f0ff');
   } else if (ty === 'bomb') { if (G.bombs < 7) G.bombs++; else addScore(2000, it.x, it.y); Snd.sfx('bombitem'); UI.toast('BOMB +1', '#40ff80'); }
   else if (ty === 'medal') { addScore(G.medal, it.x, it.y, true); G.medal = Math.min(G.medal + 500, 5000); Snd.sfx('medal'); G.mult = Math.min(8, G.mult + 0.05); }
   else if (ty === 'up') { G.lives++; Snd.sfx('oneup'); UI.toast('1UP', '#ff60a0'); }
@@ -970,6 +973,11 @@ function hurt(t, dmg, kind) {
 }
 function killPlayer() {
   if (G.god) { pl.inv = 30; return; }
+  if (pl.alive && (G.shield || 0) > 0) {   // v2.3 shield soaks the hit
+    G.shield--; pl.inv = SHIELD_INV; G.shieldFx = 36; G.shieldHits = (G.shieldHits || 0) + 1;
+    Snd.sfx('shield'); G.shake = Math.max(G.shake, 6); sparks(pl.x, pl.y, 18, '#60f0ff', 3.5, 18); part(3, pl.x, pl.y, 0, 0, 26, 30, '#60f0ff');
+    UI.toast(G.shield ? 'SHIELD ' + G.shield + '/3' : 'SHIELD DOWN!', G.shield ? '#60f0ff' : '#ff6070'); return;
+  }
   pl.alive = false; pl.respawn = 80; pl.beamOn = false; G.deaths++; G.stats.deaths++;
   boomL(pl.x, pl.y, 0.8); part(3, pl.x, pl.y, 0, 0, 40, 120, '#80c0ff'); Snd.sfx('pdie'); G.shake = 16; G.flash = 6;
   G.mult = 1; G.medal = 500; G.lives--;
@@ -1071,8 +1079,17 @@ function drawShots() {
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
   }
 }
+function drawShield() {
+  if (!pl.alive || pl.entering > 0) return; const s = G.shield || 0, fx = G.shieldFx || 0; if (fx > 0) G.shieldFx--;
+  if (s <= 0 && fx <= 0) return;
+  ctx.globalCompositeOperation = 'lighter';
+  const r = 17 + (fx > 0 ? (36 - fx) * 0.25 : Math.sin(G.t * 0.1)), a = fx > 0 ? 0.25 + fx / 40 : 0.10 + 0.05 * s;
+  ctx.globalAlpha = Math.min(1, a); ctx.strokeStyle = '#60e8ff'; ctx.lineWidth = fx > 0 ? 2 : 1; ctx.beginPath(); ctx.arc(pl.x, pl.y, r, 0, TAU); ctx.stroke();
+  if (fx > 0) { ctx.globalAlpha = fx / 60; ctx.drawImage(glow('#40d0ff'), pl.x - r * 1.3, pl.y - r * 1.3, r * 2.6, r * 2.6); }
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+}
 function drawPlayer() {
-  if (!pl.alive) return;
+  if (!pl.alive) return; drawShield();
   if (pl.inv > 0 && (pl.inv >> 2) % 2 === 0 && pl.entering === 0 && G.bombT <= 0) return;
   // engine flames
   ctx.globalCompositeOperation = 'lighter';
@@ -1256,6 +1273,57 @@ function cityInit(seedv) {
   CITY.vehicles.length = 0;
   for (let i = 0; i < 12; i++) CITY.vehicles.push({ x: rq() * W, y: rq() * 600, v: (0.5 + rq() * 0.9) * (rq() < 0.5 ? -1 : 1), vy: rq() * 0.3 - 0.15, col: NEON[(rq() * NEON.length) | 0], big: rq() < 0.25 });
 }
+// ---- v2.3 open ocean (city gives way to sea at ~1:00 of play) ----
+const OCEAN_FROM = 48, OCEAN_AT = 64;
+function oceanK() { const s = G.scene === 'play' || G.scene === 'pause' || G.scene === 'quit' || G.scene === 'continue' || G.scene === 'options' ? (G.playT || 0) / 60 : 0; return smooth(OCEAN_FROM, OCEAN_AT, s); }
+const OCEAN = { base: null, baseN: null, crest: null, crestN: null, ships: [] };
+function genOcean(night) {
+  const TH = CITY.TH, c = mkC(W, TH), x = c.getContext('2d'), r = lcg(night ? 777 : 555);
+  const top = night ? [26, 58, 104] : [22, 92, 150], deep = night ? [6, 18, 44] : [12, 58, 112];
+  for (let y = 0; y < TH; y += 4) for (let i = 0; i < W; i += 6) {   // mottled depth
+    const n = 0.5 + 0.5 * Math.sin(i * 0.031 + y * 0.017) * Math.sin(y * 0.043 - i * 0.012) + (r() - 0.5) * 0.25, k = clamp(n, 0, 1);
+    x.fillStyle = `rgb(${(deep[0] + (top[0] - deep[0]) * k) | 0},${(deep[1] + (top[1] - deep[1]) * k) | 0},${(deep[2] + (top[2] - deep[2]) * k) | 0})`; x.fillRect(i, y, 6, 4);
+  }
+  for (let i = 0; i < 1400; i++) {   // swell lines
+    const px = r() * W, py = r() * TH, l = 3 + r() * 9; x.fillStyle = night ? `rgba(60,100,150,${0.2 + r() * 0.25})` : `rgba(90,160,210,${0.25 + r() * 0.3})`; x.fillRect(px, py, l, 1);
+    if (py + 1 < TH) { x.fillStyle = night ? 'rgba(0,4,14,0.35)' : 'rgba(6,40,80,0.35)'; x.fillRect(px + 1, py + 1, l, 1); }
+  }
+  return c;
+}
+function genCrest(night) {   // white-caps layer (transparent), drawn twice at different speeds for shimmer
+  const TH = CITY.TH, c = mkC(W, TH), x = c.getContext('2d'), r = lcg(night ? 991 : 313);
+  for (let i = 0; i < 260; i++) { const px = r() * W, py = r() * TH, l = 2 + r() * 5; x.fillStyle = night ? `rgba(150,190,230,${0.25 + r() * 0.35})` : `rgba(235,248,255,${0.45 + r() * 0.5})`; x.fillRect(px, py, l, 1); if (r() < 0.4) x.fillRect(px + 1, py - 1, l - 2, 1); }
+  return c;
+}
+function oceanInit() {
+  if (OCEAN.base) return; OCEAN.base = genOcean(false); OCEAN.baseN = genOcean(true); OCEAN.crest = genCrest(false); OCEAN.crestN = genCrest(true);
+  const r = lcg(4242); for (let i = 0; i < 4; i++) OCEAN.ships.push({ x: r() * W, y: r() * 700 - 200, vx: (r() - 0.5) * 0.25, big: r() < 0.4, h: r() < 0.5 ? 0 : 1 });
+}
+function drawOcean(ok, nk) {
+  oceanInit(); const sp = G.scrollPos, t = G.t, TH = CITY.TH;
+  tileL(blended('ocb', OCEAN.base, OCEAN.baseN, nk), sp * 0.32, ok);
+  tileL(blended('ocw', OCEAN.crest, OCEAN.crestN, nk), sp * 0.36 + Math.sin(t * 0.01) * 6, ok * (0.7 + 0.3 * Math.sin(t * 0.03)));
+  tileL(blended('ocw', OCEAN.crest, OCEAN.crestN, nk), sp * 0.29 + 300, ok * 0.5);
+  // sun / moon glitter path: a column of flickering glints at a fixed screen x
+  const gx = nk > 0.5 ? W * 0.72 : W * 0.3, col = nk > 0.5 ? '#dfe8ff' : '#fff6d0';
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 70; i++) { const h = (i * 7919 + ((t * 0.7) | 0) * (i % 5 + 1)) % 997; if (h % 3) continue; const y = (i * 53 + sp * 0.32) % (H + 20) - 10, w = 16 + 26 * Math.sin(i * 1.3) ** 2, xx = gx + Math.sin(i * 2.1 + t * 0.02) * w;
+    ctx.globalAlpha = ok * (nk > 0.5 ? 0.7 : 0.55) * (0.4 + 0.6 * ((h >> 2) % 3) / 2); ctx.fillStyle = col; ctx.fillRect(xx | 0, y | 0, 2 + (h % 4), 1); }
+  ctx.globalAlpha = ok * (nk > 0.5 ? 0.22 : 0.12); ctx.drawImage(glow(col), gx - 60, -40, 120, H + 80);
+  ctx.globalCompositeOperation = 'source-over';
+  // ships with wakes
+  for (const s of OCEAN.ships) {
+    s.y += G.scrollV * 0.32 + 0.12; s.x += s.vx; if (s.y > H + 60) { s.y = -60 - Math.random() * 600; s.x = 30 + Math.random() * (W - 60); s.big = Math.random() < 0.4; } if (s.y < -40) continue;
+    const X = s.x | 0, Y = s.y | 0, L = s.big ? 22 : 12, Wd = s.big ? 6 : 4;
+    ctx.globalAlpha = ok * 0.55; ctx.fillStyle = nk > 0.5 ? '#6a8ab0' : '#e8f6ff';
+    for (let k = 0; k < 26; k++) { const sp2 = k * 0.45; ctx.fillRect(X - sp2 - 1, Y + L / 2 + k * 2, 1, 2); ctx.fillRect(X + sp2, Y + L / 2 + k * 2, 1, 2); if (k < 10) { ctx.globalAlpha = ok * 0.3 * (1 - k / 10); ctx.fillRect(X - 1, Y + L / 2 + k * 2, 3, 2); ctx.globalAlpha = ok * 0.55 * (1 - k / 26); } }
+    ctx.globalAlpha = ok; ctx.fillStyle = 'rgba(0,10,25,0.4)'; ctx.fillRect(X - Wd / 2 + 2, Y - L / 2 + 2, Wd, L);
+    ctx.fillStyle = nk > 0.5 ? '#2a3040' : '#8a929c'; ctx.fillRect(X - Wd / 2, Y - L / 2 + 2, Wd, L - 2); ctx.fillRect(X - Wd / 2 + 1, Y - L / 2, Wd - 2, 2);
+    ctx.fillStyle = nk > 0.5 ? '#444c60' : '#d8dce0'; ctx.fillRect(X - 1, Y - 1, 2, s.big ? 6 : 3);
+    if (nk > 0.3) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = ok * nk; ctx.fillStyle = '#ff4040'; ctx.fillRect(X - Wd / 2, Y, 1, 1); ctx.fillStyle = '#40ff70'; ctx.fillRect(X + Wd / 2 - 1, Y, 1, 1); if ((t >> 4) & 1) { ctx.fillStyle = '#ffffff'; ctx.fillRect(X, Y - L / 2 + 1, 1, 1); } ctx.globalCompositeOperation = 'source-over'; }
+  }
+  ctx.globalAlpha = 1;
+}
 function bgInit(st) {
   if (BG.cur === st) return; BG.cur = st; const T = BG.tiles;
   if (!T.wall) T.wall = wallTile();
@@ -1271,7 +1339,8 @@ function blended(key, day, night, k) {   // day/night crossfade pre-composited a
 function tileL(img, pos, alpha) { if (alpha <= 0.003) return; tileV(img, pos, Math.min(1, alpha)); }
 function bgDraw() {
   const sp = G.scrollPos, nk = nightK(), dk = duskK(), TH = CITY.TH, t = G.t;
-  const farPos = sp * 0.32, towPos = sp * 0.55;
+  const farPos = sp * 0.32, towPos = sp * 0.55, ok = oceanK();
+  if (ok < 1) {
   // 1. far ground grid
   tileL(blended('far', CITY.far, CITY.farN, nk), farPos, 1);
   // 2. traffic streams on the streets
@@ -1309,9 +1378,11 @@ function bgDraw() {
     ctx.fillStyle = nk > 0.5 ? '#9ad8ff' : '#c8e0f0'; ctx.fillRect(X + d * s - 1, Y - s, 2, s);
     if (nk > 0.2) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = nk; ctx.drawImage(glow('#fff0c0'), X + d * 3 * s - 3, Y - 3, 6, 6); ctx.globalAlpha = nk * 0.5; ctx.strokeStyle = v.col; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X - d * 3 * s, Y + 0.5); ctx.lineTo(X - d * 16 * s, Y + 0.5); ctx.stroke(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
   }
-  // 6. cloud decks drifting over the city (we are above them)
-  const ca = 0.55 - 0.15 * nk; tileL(blended('cl1', CITY.cl1, CITY.cl1N, nk), sp * 0.9, ca);
-  const cb = 0.42 - 0.12 * nk; tileL(blended('cl2', CITY.cl2, CITY.cl2N, nk), sp * 1.5, cb);
+  }
+  if (ok > 0) { drawOcean(ok, nk); if (ok < 1) { ctx.fillStyle = `rgba(230,240,255,${0.35 * Math.sin(ok * Math.PI)})`; ctx.fillRect(0, 0, W, H); } }   // mist veil hides the crossfade
+  // 6. cloud decks drifting over the city / sea (we are above them)
+  const ca = (0.55 - 0.15 * nk) * (1 - 0.45 * ok * nk); tileL(blended('cl1', CITY.cl1, CITY.cl1N, nk), sp * 0.9, ca);
+  const cb = (0.42 - 0.12 * nk) * (1 - 0.45 * ok * nk); tileL(blended('cl2', CITY.cl2, CITY.cl2N, nk), sp * 1.5, cb);
   // 7. sunset warmth + night grade
   if (dk > 0.01) { const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, `rgba(255,120,60,${0.28 * dk})`); g.addColorStop(1, `rgba(140,40,120,${0.18 * dk})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
   if (nk > 0.01) { ctx.fillStyle = `rgba(6,4,20,${0.18 * nk})`; ctx.fillRect(0, 0, W, H); }
@@ -1415,7 +1486,7 @@ function enemyDie(e, scored) {
     const m = Math.floor(G.mult * 10) / 10; addScore(Math.round(e.score * m / 10) * 10, x, y, e.big >= 1);
     G.mult = Math.min(8, G.mult + [0.05, 0.15, 0.4][e.big]); G.multIdle = 0;
     if (!e.noStat && e.kind !== 'mine' && e.kind !== 'missile') G.stats.kills++;
-    if (isShip(e)) { G.shipKills = (G.shipKills || 0) + 1; dropItem(G.shipKills % ORB_EVERY === 0 ? 'C' : 'chip', x + (e.drop ? 10 : 0), y); if (e.big >= 1) for (let k = 0; k < e.big * 2; k++) dropItem('chip', x + fr(-12, 12), y + fr(-8, 8)); }
+    if (isShip(e)) { G.shipKills = (G.shipKills || 0) + 1; if ((G.playT || 0) - (G.shieldDropAt || 0) >= SHIELD_DROP_SEC * 60) { G.shieldDropAt = G.playT; G.shieldDrops = (G.shieldDrops || 0) + 1; dropItem('shield', x, y); } else dropItem(G.shipKills % ORB_EVERY === 0 ? 'C' : 'chip', x + (e.drop ? 10 : 0), y); if (e.big >= 1) for (let k = 0; k < e.big * 2; k++) dropItem('chip', x + fr(-12, 12), y + fr(-8, 8)); }
     if (e.drop) { if (e.drop === 'medal+bomb') { dropItem('medal', x - 8, y); dropItem('bomb', x + 8, y); } else dropItem(e.drop, x, y); }
   }
   if (e.big === 2) { boomL(x, y, 1); Snd.sfx('expL'); G.shake = Math.max(G.shake, 10); for (let i = 0; i < 4; i++) boomM(x + fr(-e.hw, e.hw), y + fr(-e.hh, e.hh)); }
@@ -1817,7 +1888,7 @@ const UI = {
 const BOMB_BTN = { x: W - 30, y: H - 52, r: 21 };
 function newStats() { return { kills: 0, spawned: 0, deaths: 0, bombs: 0, items: 0, bosses: 0 }; }
 function newGame(stage) {
-  G.score = 0; G.lives = 2; G.bombs = 3; G.credits = 3; G.continues = 0; G.weapon = 'V'; G.wlv = 1; G.chips = 0; G.playT = 0; G.shipKills = 0; G.thr = 0; G.mult = 1; G.medal = 500; G.nextExt = 0; G.deaths = 0;
+  G.score = 0; G.lives = 2; G.bombs = 3; G.credits = 3; G.continues = 0; G.weapon = 'V'; G.wlv = 1; G.chips = 0; G.playT = 0; G.shipKills = 0; G.thr = 0; G.shield = 3; G.shieldFx = 0; G.shieldDropAt = 0; G.shieldDrops = 0; G.shieldHits = 0; G.mult = 1; G.medal = 500; G.nextExt = 0; G.deaths = 0;
   G.tot = newStats(); playerReset(true); startStage(stage || 0); G.scene = 'play';
 }
 function clearWorld() { enemies.clear(); ebul.clear(); pshots.clear(); items.clear(); lasers.clear(); parts.clear(); G.boss = null; G.bombT = 0; }
@@ -1973,6 +2044,8 @@ function renderHUD() {
     for (let i = 0; i < 8; i++) R(ctx, 42 + i * 5, 22 + (i < n ? 0 : 2), 3, i < n ? 5 : 3, i < n ? col : '#2a2e40'); ctx.globalAlpha = 1; }
   // lives + bombs (top right row 2)
   for (let i = 0; i < Math.min(6, Math.max(0, G.lives)); i++) { ctx.drawImage(PLAYER_SPR[1], W - 34 - i * 9, 12, 8, 9); }
+  { const s = G.shield || 0, fl = (G.shieldFx || 0) > 0 && (G.t >> 2) & 1; text('SHIELD', W - 70, 23, s ? '#60c8e0' : ((G.t >> 4) & 1 ? '#ff6070' : '#803040'), 1);   // shield pips
+    for (let i = 0; i < 3; i++) { const x = W - 34 + i * 10, on = i < s; R(ctx, x, 23, 8, 6, on ? (fl ? '#ffffff' : '#40d8ff') : '#1c2a38'); R(ctx, x, 23, 8, 1, on ? '#c0f8ff' : '#2c3c50'); } }
   // weapon badge bottom-left
   const w = G.weapon, wc = WPN[w].col; ctx.fillStyle = 'rgba(0,0,10,0.6)'; ctx.fillRect(2, H - 22, 104, 20); R(ctx, 2, H - 22, 104, 1, wc);
   R(ctx, 4, H - 14, 10, 10, wc); text(w === 'V' ? 'V' : w === 'R' ? 'S' : w === 'B' ? 'L' : 'H', 7, H - 13, '#000', 1, 'l', false);
@@ -2069,7 +2142,7 @@ window.STRIKE = {
   steps(n) { for (let i = 0; i < n; i++) step(); }, render, step,
   toBoss() { G.tli = G.tl.length - 1; G.waveT = G.tl[G.tli][0] - 1; enemies.clear(); },
   toMid() { const i = G.tl.findIndex(e => e[1] === 'MID'); G.tli = i; G.waveT = G.tl[i][0] - 1; },
-  skipTime(sec) { G.playT = (G.playT || 0) + sec * 60; return nightK(); }, timeOfDay() { return { sec: playSec(), night: nightK(), dusk: duskK() }; }, plasma: () => PLZ, tune(o) { if (o.chipA != null) CHIP_A = o.chipA; if (o.chipB != null) CHIP_B = o.chipB; if (o.orb != null) ORB_EVERY = o.orb; if (o.bb != null) BOSS_BASE = o.bb; if (o.bk != null) BOSS_K = o.bk; }, threat() { return { thr: thr(), target: thrTarget(), lv: G.wlv, L: stageL(), xWaves: G.xWaves || 0, merges: G.chipMerges || 0 }; },
+  skipTime(sec) { G.playT = (G.playT || 0) + sec * 60; return nightK(); }, timeOfDay() { return { sec: playSec(), night: nightK(), dusk: duskK(), ocean: oceanK() }; }, plasma: () => PLZ, tune(o) { if (o.chipA != null) CHIP_A = o.chipA; if (o.chipB != null) CHIP_B = o.chipB; if (o.orb != null) ORB_EVERY = o.orb; if (o.bb != null) BOSS_BASE = o.bb; if (o.bk != null) BOSS_K = o.bk; }, threat() { return { thr: thr(), target: thrTarget(), lv: G.wlv, L: stageL(), xWaves: G.xWaves || 0, merges: G.chipMerges || 0 }; },
   weapon(w, l) { G.weapon = w; G.wlv = l || 1; },
   state() { return { scene: G.scene, stage: G.stage, phase: G.phase, waveT: G.waveT, score: G.score, lives: G.lives, bombs: G.bombs, weapon: G.weapon, lv: G.wlv, mult: G.mult, boss: G.boss ? { id: G.boss.id, ph: G.boss.ph, bar: bossBar(G.boss), dying: G.boss.dying, t: G.boss.t } : null, bullets: ebul.count, enemies: enemies.count, deaths: G.deaths, credits: G.credits, music: Snd.sname }; },
 };
