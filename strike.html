@@ -2223,7 +2223,7 @@ const UI = {
 const BOMB_BTN = { x: W - 30, y: H - 52, r: 21 };
 function newStats() { return { kills: 0, spawned: 0, deaths: 0, bombs: 0, items: 0, bosses: 0 }; }
 function newGame(stage) {
-  G.score = 0; G.lives = 2; G.bombs = 3; G.credits = 3; G.continues = 0; G.weapon = 'V'; G.wlv = 1; G.chips = 0; G.playT = 0; G.shipKills = 0; G.thr = 0; G.dangerT = 0; G.slowmo = 0; G.hitCauseT = 0; G.shield = 3; G.shieldFx = 0; G.shieldDropAt = 0; G.shieldDrops = 0; G.shieldHits = 0; G.mult = 1; G.medal = 500; G.nextExt = 0; G.deaths = 0;
+  G.score = 0; G.lives = 2; G.bombs = 3; G.credits = 3; G.continues = 0; G.weapon = 'V'; G.wlv = 1; G.chips = 0; G.playT = 0; G.terrOff = 0; G.shipKills = 0; G.thr = 0; G.dangerT = 0; G.slowmo = 0; G.hitCauseT = 0; G.shield = 3; G.shieldFx = 0; G.shieldDropAt = 0; G.shieldDrops = 0; G.shieldHits = 0; G.mult = 1; G.medal = 500; G.nextExt = 0; G.deaths = 0;
   G.tot = newStats(); playerReset(true); startStage(stage || 0); G.scene = 'play';
 }
 // ---- v2.4 save / continue (localStorage). Resume point: the same wave time in the same stage (bosses restart from their warning) ----
@@ -2986,7 +2986,7 @@ function mechaBody(b) { if (!b.bodyC) b.bodyC = mkC(MC.base.width, MC.base.heigh
   for (const p of b.plates) if (p.on) x.drawImage(p.spr, p.x, p.y); c.flash = silhouette(c, '#fff'); b.shadow = silhouette(c, '#000a14'); DMG.delete(c); return c; }
 const _mbs2 = makeBossSprites; makeBossSprites = function () { _mbs2(); makeMecha(); };
 BOSS.mecha = { name: 'RAGNA-01 WARMECH', score: 60000, timeout: 1e9, full: true,
-  init(b) { b.ty = 112; b.plates = MC.plates.map(p => Object.assign({}, p, { on: true })); b.body = mechaBody(b); b.bodyOy = 0; b.lost = 0;
+  init(b) { b.ty = 124; b.plates = MC.plates.map(p => Object.assign({}, p, { on: true })); b.body = mechaBody(b); b.bodyOy = 0; b.lost = 0;
     for (const s of [-1, 1]) addPart(b, { tag: 'arm', ox: s * 62, oy: 22, hw: 13, hh: 30, hp: 260, spr: s < 0 ? MC.armL : MC.armR, score: 5000, i: s > 0 ? 1 : 0 });
     for (const s of [-1, 1]) addPart(b, { tag: 'can', ox: s * 46, oy: -38, hw: 13, hh: 14, hp: 170, spr: MC.cannon, score: 3000, i: s > 0 ? 1 : 0, big: 1 });
     for (const s of [-1, 1]) addPart(b, { tag: 'rack', ox: s * 40, oy: 36, hw: 10, hh: 15, hp: 140, spr: MC.rack, score: 2500, i: s > 0 ? 1 : 0, big: 1 });
@@ -2994,19 +2994,19 @@ BOSS.mecha = { name: 'RAGNA-01 WARMECH', score: 60000, timeout: 1e9, full: true,
     addPart(b, { tag: 'hull', ox: 0, oy: 0, hw: 34, hh: 50, tgt: false, solid: true });
     Snd.play('boss');
   },
-  update(b) { ease(b); b.x = W / 2 + Math.sin(b.t * 0.009) * 44; b.y += Math.sin(b.t * 0.05) * 0.25;
+  update(b) { ease(b); if (b.lzLock > 0) { b.lzLock--; b.swT = b.swT || 0; } else b.swT = (b.swT || 0) + 1; b.x = W / 2 + Math.sin(b.swT * 0.009) * 44; b.y += Math.sin(b.t * 0.05) * 0.25;
     // armour plates blow off as overall HP drops
     const k = 1 - bossBar(b), want = Math.min(b.plates.length, Math.floor(k * b.plates.length * 1.15));
     while (b.lost < want) { const p = b.plates[b.lost++]; p.on = false; const px = b.x - b.body.width / 2 + p.x + p.w / 2, py = b.y - b.body.height / 2 + p.y + p.h / 2; boomS(px, py); debris(px, py, 8, 1.2); sparks(px, py, 6, '#ffc060', 2.6, 14); Snd.sfx('expM'); G.shake = Math.max(G.shake, 4); mechaBody(b); }
     if (!b.ready) return; const c = b.core, D = danger();
     if (bossBar(b) < 0.4 && b.ph === 0) { b.ph = 1; b.pt = 0; UI.toast('CORE OVERLOAD', '#ff8a1a'); }
     for (const p of b.parts) { if (!p.alive) continue;
-      if (p.tag === 'arm') { const T = 170, o = p.i * 85, q = (b.pt + o) % T; ev(b, T, o, p); if (q < 45 && q % 3 === 0) { const sw = (q / 45 - 0.5) * (p.i ? -1.1 : 1.1), a = Math.PI / 2 + sw + (p.i ? -0.15 : 0.15); for (let n = 0; n < (D > 1 ? 2 : 1); n++) eb(p.x, p.y + 32, a + n * 0.12, 2.5 + 0.4 * thr(), 1); } }
+      if (p.tag === 'arm' && !(b.lzLock > 100)) { const T = 170, o = p.i * 85, q = (b.pt + o) % T; ev(b, T, o, p); if (q < 45 && q % 3 === 0) { const sw = (q / 45 - 0.5) * (p.i ? -1.1 : 1.1), a = Math.PI / 2 + sw + (p.i ? -0.15 : 0.15); for (let n = 0; n < (D > 1 ? 2 : 1); n++) eb(p.x, p.y + 32, a + n * 0.12, 2.5 + 0.4 * thr(), 1); } }
       if (p.tag === 'can' && ev(b, 130, 40 + p.i * 65, p)) stack(p.x, p.y + 16, 3, 1.9, 2.8, 5);
       if (p.tag === 'rack' && ev(b, 280, 100 + p.i * 140, p)) for (let j = 0; j < 2; j++) spawnE('missile', p.x + (j ? 4 : -4), p.y + 14, 'home', { ang: Math.PI / 2 + (j ? 0.5 : -0.5) * (p.i ? 1 : -1), p1: 110, p2: 1.45 * G.bs, noStat: true });
     }
     if (b.ph === 0) { if (ev(b, 160, 80, c)) ring(c.x, c.y, 10, 1.3, 0, b.pt * 0.03); }
-    else { if (ev(b, 300, 60, c)) { b.lzA = clamp(aimA(c.x, c.y), Math.PI / 2 - 0.5, Math.PI / 2 + 0.5); b.las = laser(c.x, c.y + 8, b.lzA, 560, 18, 80, 100, c, '#ff8a1a'); Snd.sfx('warn'); }
+    else { if (ev(b, 300, 60, c)) { b.lzA = clamp(aimA(c.x, c.y), Math.PI / 2 - 0.5, Math.PI / 2 + 0.5); b.las = laser(c.x, c.y + 8, b.lzA, 560, 18, 80, 100, c, '#ff8a1a'); b.lzLock = 180; Snd.sfx('warn'); }
       if (b.las && b.las.alive) { b.las.x = c.x; b.las.y = c.y + 8; }
       if (ev(b, 120, 0, c)) ring(c.x, c.y, 12, 1.4, 0, b.pt * 0.02); }
   },
@@ -3050,6 +3050,87 @@ function buildTimeline(si) {
   for (let c = 1, ct = S.carrier * 60 * 0.6; ct < end - 300; ct += S.carrier * 60, c++) tl.push([Math.round(ct), 'carrier' + c]);
   tl.push([end, 'BOSS']); tl.sort((a, b) => a[0] - b[0]); return tl;
 }
+// ===== v3.3: per-weapon mecha tuning, ocean hold during the fight, 2-minute retreat =====
+BOSS.mecha.wk = { V: 1, R: 1, B: 0.85, P: [0.22, 0.2, 0.2, 0.25, 0.3, 0.4, 0.52, 0.66, 0.66, 1.3] };   // plasma resistance: the whip coils on the hull
+const _hurt = hurt; hurt = function (t, dmg, kind) { if (t && t.isPart && t.boss && t.boss.def.wk) { const k = t.boss.def.wk[G.weapon]; dmg *= Array.isArray(k) ? k[clamp(G.wlv, 1, MAXLV) - 1] : (k || 1); } return _hurt(t, dmg, kind); };
+// terrain clock: freezes just before the ocean->city wall while the mecha is up, then resumes (wall + transition play normally)
+const HOLD_AT = CITY_BACK_FROM - 1.5;
+function terrainSec() { return G.scene === 'play' || G.scene === 'pause' || G.scene === 'quit' || G.scene === 'continue' || G.scene === 'options' ? Math.max(0, (G.playT || 0) - (G.terrOff || 0)) / 60 : 0; }
+function mechaHold() { const b = G.boss; if (!b || b.id !== 'mecha' || G.scene !== 'play') return; const s = ((G.playT || 0) - (G.terrOff || 0)) / 60; if (s >= HOLD_AT && s < CITY_BACK_AT) G.terrOff = (G.terrOff || 0) + ((G.playT || 0) - (G.terrOff || 0) - HOLD_AT * 60); }
+if (!SAVE_F.includes('terrOff')) SAVE_F.push('terrOff');
+BOSS.mecha.timeout = 120 * 60 + 110;
+const _uB3 = updBoss; updBoss = function () { mechaHold(); const b = G.boss, wasL = b && b.leaving;
+  _uB3(); if (b && b.id === 'mecha' && b.leaving && !wasL) { UI.toast('RAGNA-01 RETREATING', '#ffb060'); G.banner = null; for (const l of lasers.items) if (l.alive && l.owner && l.owner.boss === b) lasers.kill(l); b.las = null; Snd.sfx('warn'); }
+  if (b && b.id === 'mecha' && b.leaving && G.boss === b) { b.y -= 0.8; }   // a bit faster than the stock 1.6 climb
+  if (b && b.id === 'mecha' && !G.boss && b.leaving && G.scene === 'play') { G.stats.retreats = (G.stats.retreats || 0) + 1; }
+};
+// plasma: during the mecha fight, its slow missiles don't hog the whip (they're dodgeable by design)
+function plzPickTargets(nb) {
+  const out = [null, null, null], mf = G.boss && G.boss.id === 'mecha';
+  for (let b = 0; b < nb; b++) {
+    let best = null, bd = 1e12;
+    for (let i = 0; i < TGn; i++) {
+      const t = TG[i]; if (!t.alive || t.hp <= 0 || t.armor === 0 || t.y < -8) continue;
+      if (out[0] === t || out[1] === t) continue;
+      const d = dist2(pl.x, pl.y, t.x, t.y) + (t.y > pl.y ? 9000 : 0) + (PLZ.beams[b].tg === t ? -6000 : 0) + (mf && t.kind === 'missile' ? 60000 : 0);
+      if (d < bd) { bd = d; best = t; }
+    }
+    out[b] = best || out[0];
+  }
+  return out;
+}
+
+
+// ===== STRIKE v3.3: live world leaderboard (Supabase REST, insert-only via RPC) with offline fallback to local scores =====
+// Fill these two in once the Supabase project exists (anon key is public by design; RLS + the submit_score() function guard writes).
+const NET = { url: 'https://kfupqtafhaflzaoqtenf.supabase.co', key: 'sb_publishable_IAXEXd619Dq0g50CY-UNRQ_IqWDU4-2', board: null, state: 'off', lastErr: '', lastPost: 0, pending: LS.get('strike_pending', []) };
+// one-time migration: local DMC 2797410 -> ETM
+if (!LS.get('strike_mig_etm', false)) { let ch = false; SCORES.forEach(e => { if (e.n === 'DMC' && e.s === 2797410) { e.n = 'ETM'; ch = true; } }); if (ch) LS.set(SCORES_KEY, SCORES); LS.set('strike_mig_etm', true); }
+function netOn() { return !!(NET.url && NET.key) && typeof fetch === 'function'; }
+function netHdr() { return { apikey: NET.key, Authorization: 'Bearer ' + NET.key, 'Content-Type': 'application/json' }; }
+function netTimeout(p, ms) { return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]); }
+function cleanName(n) { n = String(n || '').toUpperCase().replace(/[^A-Z0-9.!-]/g, ''); return (n + '---').slice(0, 3); }
+async function netFetchTop() {
+  if (!netOn()) { NET.state = 'off'; return null; } NET.state = NET.board ? NET.state : 'loading';
+  try { const r = await netTimeout(fetch(NET.url + '/rest/v1/scores?select=n,s,st,c,done&order=s.desc,id.asc&limit=10', { headers: netHdr(), cache: 'no-store' }), 6000);
+    if (!r.ok) throw new Error('http ' + r.status); const a = await r.json(); if (!Array.isArray(a)) throw new Error('bad');
+    NET.board = a.map(e => ({ n: cleanName(e.n), s: Math.max(0, e.s | 0), st: e.st | 0, c: e.c | 0, done: !!e.done })).slice(0, 10); NET.state = 'online'; NET.t = Date.now(); return NET.board;
+  } catch (e) { NET.state = 'offline'; NET.lastErr = String(e.message || e); return null; }
+}
+async function netSubmit(e) {
+  if (!netOn()) return false; const now = Date.now(); if (now - NET.lastPost < 20000) return false;   // client-side rate limit (server enforces too)
+  NET.lastPost = now;
+  try { const r = await netTimeout(fetch(NET.url + '/rest/v1/rpc/submit_score', { method: 'POST', headers: netHdr(), body: JSON.stringify({ p_n: cleanName(e.n), p_s: e.s | 0, p_st: e.st | 0, p_c: e.c | 0, p_done: !!e.done, p_dur: e.dur | 0, p_ver: NET.ver || 'v3.3' }) }), 8000);
+    if (!r.ok) { NET.lastErr = 'submit ' + r.status; if (r.status >= 500) throw new Error(NET.lastErr); return false; }
+    await netFetchTop(); return true;
+  } catch (err) { NET.pending.push(e); NET.pending = NET.pending.slice(-3); LS.set('strike_pending', NET.pending); NET.state = 'offline'; return false; }
+}
+async function netFlush() { if (!netOn() || !NET.pending.length || NET.state !== 'online') return; const p = NET.pending.shift(); LS.set('strike_pending', NET.pending); NET.lastPost = 0; await netSubmit(p); }
+// local plausibility mirror of the server check (score per second of play)
+const MAX_SCORE = 50000000; function plausible(s, dur) { return s > 0 && s <= MAX_SCORE && s % 10 === 0 && s <= 250000 + dur * 60000; }
+// qualify against the world board when we have it, otherwise the local table
+const _qual = qualifies; qualifies = function (s) { if (NET.board) { const b = NET.board; if (s > 0 && (b.length < 10 || s > b[b.length - 1].s) && plausible(s, (G.playT || 0) / 60)) return true; } return _qual(s); };
+const _save = saveEntry; saveEntry = function () { _save(); const e = { n: UI.lastName, s: UI.lastScore, st: G.reached || G.stage + 1, c: G.continues, done: G.scene === 'scores' && !!(SCORES.find(x => x.n === UI.lastName && x.s === UI.lastScore) || {}).done, dur: Math.round((G.playT || 0) / 60) };
+  if (plausible(e.s, e.dur)) { UI.netMsg = 'SENDING...'; netSubmit(e).then(ok => { UI.netMsg = ok ? 'WORLD SCORE SAVED' : (NET.state === 'offline' ? 'OFFLINE - SAVED LOCALLY' : 'NOT ACCEPTED'); }); } };
+// world hi on HUD / title
+function worldHi() { return NET.board && NET.board.length ? NET.board[0].s : 0; }
+const _rt = renderTitle; renderTitle = function () { const h = G.hi; G.hi = Math.max(G.hi, worldHi()); _rt(); G.hi = h;
+  const st = NET.state; if (netOn()) text(st === 'online' ? 'WORLD RANKING ONLINE' : st === 'loading' ? 'CONNECTING...' : 'OFFLINE - LOCAL SCORES', W / 2, 392, st === 'online' ? '#60e0a0' : '#a08070', 1, 'c');
+  if (NET.board && NET.board.length) { const top = NET.board.slice(0, 3).map((e, i) => (i + 1) + '.' + e.n + ' ' + e.s).join('  '); text(top, W / 2, 440, '#d0d8f0', 1, 'c'); } };
+const _rgo = renderGameOver; renderGameOver = function () { _rgo(); if (NET.board && NET.board.length) { const r = NET.board.findIndex(e => G.score > e.s); text(r >= 0 ? 'WORLD RANK #' + (r + 1) + ' !' : 'WORLD #10 ' + NET.board[NET.board.length - 1].s, W / 2, 292, r >= 0 ? '#60e0a0' : '#a0a8c0', 1, 'c'); } };
+function renderScores() {
+  const world = NET.board && NET.board.length, L = world ? NET.board : SCORES;
+  text(world ? 'WORLD TOP 10' : 'HIGH SCORES', W / 2, 60, '#ffd050', 2, 'c'); text('RANK  NAME     SCORE  ST', W / 2, 92, '#80c0ff', 1, 'c');
+  L.forEach((s, i) => { const me = s.n === UI.lastName && s.s === UI.lastScore, col = me ? ((G.t >> 3) & 1 ? '#ff6a8a' : '#ffffff') : i === 0 ? '#ffd050' : '#d0d8f0'; text(String(i + 1).padStart(2, ' ') + '.  ' + s.n.padEnd(3, ' ') + '  ' + String(s.s).padStart(9, ' ') + '  ' + (s.st >= 5 && s.s > 0 && s.done ? 'ALL' : s.st), W / 2, 110 + i * 18, col, 1, 'c'); });
+  if (world) text('YOUR BEST  ' + SCORES[0].n + ' ' + SCORES[0].s, W / 2, 300, '#a0a8c0', 1, 'c');
+  text(netOn() ? (NET.state === 'online' ? 'LIVE - SHARED WITH ALL PLAYERS' : 'OFFLINE - SHOWING LOCAL SCORES') : 'LOCAL SCORES', W / 2, 320, NET.state === 'online' ? '#60e0a0' : '#a08070', 1, 'c');
+  if (UI.netMsg) text(UI.netMsg, W / 2, 340, '#ffd050', 1, 'c');
+  text('TAP / FIRE TO RETURN', W / 2, 420, '#a0a8c0', 1, 'c');
+}
+// refresh on boot, on title/scores, and every 60 s
+const _gt = gotoTitle; gotoTitle = function () { _gt(); netFetchTop().then(netFlush); };
+setInterval(() => { if (G.scene === 'title' || G.scene === 'scores' || G.scene === 'gameover') netFetchTop(); }, 60000);
+netFetchTop().then(netFlush);
 boot();
 
 </script></body></html>
