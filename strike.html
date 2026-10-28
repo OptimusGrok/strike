@@ -3115,8 +3115,8 @@ const _dp4 = drawPlayer; drawPlayer = function () {
   const tr = SLOW.trail; let mv = 0; for (let i = 0; i < Math.min(4, tr.length); i++) mv += tr[i].m;
   if (slowOn() && pl.alive && mv > 1.2 && tr.length > 2) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
-    const L = tr[tr.length - 1], dx = tr[0].x - L.x, dy = tr[0].y - L.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, nx = -uy, ny = ux, len = 44 + d * 3;
-    for (let k = -4; k <= 4; k++) { const o = k * 3.6, x0 = pl.x + nx * o - ux * 8, y0 = pl.y + ny * o - uy * 8, l = len * (1 - Math.abs(k) * 0.13) * (0.75 + 0.25 * Math.sin(G.t * 0.9 + k * 2));
+    const L = tr[tr.length - 1], dx = tr[0].x - L.x, dy = tr[0].y - L.y, d = Math.hypot(dx, dy) || 1, ux = 0, uy = -1, nx = 1, ny = 0, len = 44 + d * 3;   // v3.5.1: always trail from the rear (engines), straight down
+    for (let k = -4; k <= 4; k++) { const o = k * 1.5, x0 = pl.x + nx * o - ux * 8, y0 = pl.y + ny * o - uy * 8, l = len * (1 - Math.abs(k) * 0.13) * (0.75 + 0.25 * Math.sin(G.t * 0.9 + k * 2));
       const g = ctx.createLinearGradient(x0, y0, x0 - ux * l, y0 - uy * l); g.addColorStop(0, 'rgba(220,245,255,0.95)'); g.addColorStop(1, 'rgba(60,120,255,0)');
       ctx.strokeStyle = g; ctx.lineWidth = k === 0 ? 3.5 : 2; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 - ux * l, y0 - uy * l); ctx.stroke(); }
     const ps = playerFrame(), gap = 5 + Math.min(d, 30) * 0.35;   // fading afterimages stretched behind the ship
