@@ -3082,6 +3082,62 @@ function plzPickTargets(nb) {
 }
 
 
+// ===== STRIKE v3.5: SLOW — 8 s enemy time-dilation (37.5%), 60 s cooldown from activation, speed streaks =====
+const SLOW = { F: 0.375, DUR: 480, CD: 3600, acc: 0, tick: true, trail: [] };
+const SLOW_BTN = { x: BOMB_BTN.x, y: BOMB_BTN.y - 50, r: BOMB_BTN.r };
+KEYMAP.KeyC = 'slow'; KEYMAP.KeyL = 'slow';
+G.slowT = 0; G.slowCD = 0;
+function slowOn() { return G.slowT > 0; }
+function trySlow() { if (G.scene !== 'play' || !pl.alive || G.slowCD > 0 || G.phase === 'clear') return false; G.slowT = SLOW.DUR; G.slowCD = SLOW.CD; SLOW.acc = 0; SLOW.trail.length = 0; Snd.sfx && Snd.sfx('bombitem'); UI.toast('SLOW', '#80d0ff'); return true; }
+const _hit4 = UI.hitButton; UI.hitButton = function (x, y) { if (G.scene === 'play' && dist2(x, y, SLOW_BTN.x, SLOW_BTN.y) < SLOW_BTN.r * SLOW_BTN.r * 1.3) { UI.slowReq = true; return true; } return _hit4.call(this, x, y); };
+const _ng4 = newGame; newGame = function (s) { _ng4(s); G.slowT = 0; G.slowCD = 0; SLOW.trail.length = 0; };
+// gate enemy-side systems on the dilation tick (player, shots, collisions, particles, scroll and day/night run at full speed)
+const _rt4 = runTimeline; runTimeline = function () { if (SLOW.tick) _rt4(); };
+const _ue4 = updEnemies; updEnemies = function () { if (SLOW.tick) _ue4(); };
+const _ub4 = updBoss; updBoss = function () { if (SLOW.tick) _ub4(); };
+const _ul4 = updLasers; updLasers = function () { if (SLOW.tick) _ul4(); };
+const _bu4 = updBullets; updBullets = function () {   // bullets: smooth scaled motion every frame
+  if (!slowOn()) return _bu4(); const f = SLOW.F, a = ebul.items;
+  for (let i = 0; i < a.length; i++) { const b = a[i]; if (!b.alive) continue;
+    if (b.home > 0) { b.home -= f; const ang = Math.atan2(b.vy, b.vx), da = angWrap(aimA(b.x, b.y) - ang), na = ang + clamp(da, -b.turn * f, b.turn * f); b.vx = Math.cos(na) * b.spd; b.vy = Math.sin(na) * b.spd; }
+    b.vx += b.ax * f; b.vy += b.ay * f; b.x += b.vx * f; b.y += b.vy * f; b.life += f;
+    if (b.y > H + 12 || b.y < -40 || b.x < -12 || b.x > W + 12) ebul.kill(b); } };
+const _up4 = updPlay; updPlay = function () {
+  if (G.scene === 'play' && (Input.pressed.slow || UI.slowReq)) trySlow(); UI.slowReq = false;
+  if (G.slowCD > 0) G.slowCD--;
+  if (slowOn()) { G.slowT--; SLOW.acc += SLOW.F; SLOW.tick = SLOW.acc >= 1; if (SLOW.tick) SLOW.acc -= 1; } else SLOW.tick = true;
+  const px = pl.x, py = pl.y; _up4();
+  if (!pl.alive) G.slowT = 0;                                  // death ends Slow, cooldown keeps running
+  if (G.phase === 'clear') G.slowT = 0;
+  const tr = SLOW.trail; if (slowOn() && pl.alive) { const m = Math.hypot(pl.x - px, pl.y - py); tr.unshift({ x: pl.x, y: pl.y, m }); if (tr.length > 14) tr.pop(); } else tr.length = 0;
+  SLOW.tick = true; };
+const _dp4 = drawPlayer; drawPlayer = function () {
+  const tr = SLOW.trail; let mv = 0; for (let i = 0; i < Math.min(4, tr.length); i++) mv += tr[i].m;
+  if (slowOn() && pl.alive && mv > 1.2 && tr.length > 2) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+    const L = tr[tr.length - 1], dx = tr[0].x - L.x, dy = tr[0].y - L.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, nx = -uy, ny = ux, len = 44 + d * 3;
+    for (let k = -4; k <= 4; k++) { const o = k * 3.6, x0 = pl.x + nx * o - ux * 8, y0 = pl.y + ny * o - uy * 8, l = len * (1 - Math.abs(k) * 0.13) * (0.75 + 0.25 * Math.sin(G.t * 0.9 + k * 2));
+      const g = ctx.createLinearGradient(x0, y0, x0 - ux * l, y0 - uy * l); g.addColorStop(0, 'rgba(220,245,255,0.95)'); g.addColorStop(1, 'rgba(60,120,255,0)');
+      ctx.strokeStyle = g; ctx.lineWidth = k === 0 ? 3.5 : 2; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 - ux * l, y0 - uy * l); ctx.stroke(); }
+    const ps = playerFrame(), gap = 5 + Math.min(d, 30) * 0.35;   // fading afterimages stretched behind the ship
+    ctx.globalCompositeOperation = 'source-over'; for (let i = 4; i >= 1; i--) { ctx.globalAlpha = 0.34 - i * 0.065; blit(ps, pl.x - ux * i * gap, pl.y - uy * i * gap); }
+    ctx.globalCompositeOperation = 'lighter'; for (let i = 3; i >= 1; i--) { ctx.globalAlpha = 0.22 / i; blit(ps.flash, pl.x - ux * i * gap * 1.4, pl.y - uy * i * gap * 1.4); }
+    ctx.restore(); ctx.globalAlpha = 1;
+  }
+  _dp4(); };
+const _rh4 = renderHUD; renderHUD = function () {
+  if (slowOn()) { const k = Math.min(1, G.slowT / 30, (SLOW.DUR - G.slowT) / 15); ctx.save(); ctx.globalAlpha = 0.55 * k;
+    if (!SLOW.vig) { const c = mkC(W >> 1, (H + 200) >> 1), x = c.getContext('2d'), g = x.createRadialGradient(c.width / 2, c.height / 2, c.height * 0.16, c.width / 2, c.height / 2, c.height * 0.5); g.addColorStop(0, 'rgba(40,90,220,0.18)'); g.addColorStop(1, 'rgba(30,60,190,1)'); x.fillStyle = g; x.fillRect(0, 0, c.width, c.height); SLOW.vig = c; }
+    ctx.imageSmoothingEnabled = true; ctx.drawImage(SLOW.vig, 0, -100, W, H + 200); ctx.imageSmoothingEnabled = false; ctx.restore(); }
+  _rh4();
+  if (G.scene !== 'play' && G.scene !== 'pause') return;
+  const b = SLOW_BTN, ready = G.slowCD <= 0, act = slowOn();
+  ctx.globalAlpha = act ? 0.8 : ready ? 0.55 : 0.28; C(ctx, b.x, b.y, b.r, act ? '#10306a' : ready ? '#0c2448' : '#202428');
+  if (!ready && !act) { ctx.globalAlpha = 0.45; ctx.fillStyle = '#5a6a80'; ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.arc(b.x, b.y, b.r, -Math.PI / 2, -Math.PI / 2 + TAU * (1 - G.slowCD / SLOW.CD)); ctx.closePath(); ctx.fill(); }
+  ctx.globalAlpha = ready || act ? 1 : 0.5; ctx.strokeStyle = act ? '#c0f0ff' : ready ? '#40b0ff' : '#708090'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, act ? TAU * G.slowT / SLOW.DUR : TAU); ctx.stroke(); ctx.globalAlpha = 1;
+  text('SLOW', b.x, b.y - 7, ready || act ? '#a0e0ff' : '#8090a0', 1, 'c');
+  text(act ? String(Math.ceil(G.slowT / 60)) : ready ? (Input.touchMode ? 'GO' : 'C') : String(Math.ceil(G.slowCD / 60)), b.x, b.y + 3, act ? '#ffffff' : ready ? '#ffffff' : '#a0a8b0', 1, 'c'); };
+
 // ===== STRIKE v3.3: live world leaderboard (Supabase REST, insert-only via RPC) with offline fallback to local scores =====
 // Fill these two in once the Supabase project exists (anon key is public by design; RLS + the submit_score() function guard writes).
 const NET = { url: 'https://kfupqtafhaflzaoqtenf.supabase.co', key: 'sb_publishable_IAXEXd619Dq0g50CY-UNRQ_IqWDU4-2', board: null, state: 'off', lastErr: '', lastPost: 0, pending: LS.get('strike_pending', []) };
@@ -3101,7 +3157,7 @@ async function netFetchTop() {
 async function netSubmit(e) {
   if (!netOn()) return false; const now = Date.now(); if (now - NET.lastPost < 20000) return false;   // client-side rate limit (server enforces too)
   NET.lastPost = now;
-  try { const r = await netTimeout(fetch(NET.url + '/rest/v1/rpc/submit_score', { method: 'POST', headers: netHdr(), body: JSON.stringify({ p_n: cleanName(e.n), p_s: e.s | 0, p_st: e.st | 0, p_c: e.c | 0, p_done: !!e.done, p_dur: e.dur | 0, p_ver: NET.ver || 'v3.4' }) }), 8000);
+  try { const r = await netTimeout(fetch(NET.url + '/rest/v1/rpc/submit_score', { method: 'POST', headers: netHdr(), body: JSON.stringify({ p_n: cleanName(e.n), p_s: e.s | 0, p_st: e.st | 0, p_c: e.c | 0, p_done: !!e.done, p_dur: e.dur | 0, p_ver: NET.ver || 'v3.5' }) }), 8000);
     if (!r.ok) { NET.lastErr = 'submit ' + r.status; if (r.status >= 500) throw new Error(NET.lastErr); return false; }
     await netFetchTop(); return true;
   } catch (err) { NET.pending.push(e); NET.pending = NET.pending.slice(-3); LS.set('strike_pending', NET.pending); NET.state = 'offline'; return false; }
