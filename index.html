@@ -617,13 +617,14 @@ function glow(col) {
 // enemy bullet kinds: 0 small pink, 1 med orange, 2 large magenta, 3 needle cyan-white, 4 small orange, 5 big ring violet
 const EB_R = [3.2, 4.4, 6.8, 2.6, 3.2, 5.5];          // visual radius
 const EB_HIT = [2.2, 3.0, 4.8, 1.8, 2.2, 3.8];        // collision radius
-const EB_SPR = [], EB_GC = ['#ffd21a', '#ff9a12', '#9aff1a', '#e8ff30', '#ffb800', '#40ff90'];
+const EB_SPR = [], EB_GC = ['#ff2010', '#ff7a00', '#ff2010', '#ff3010', '#ff7a00', '#ff2010']   // v3.4: red/yellow enemy fire;
 function makeBullets() {
-  const defs = [['#ffd21a', '#fffbe0'], ['#ff9a12', '#fff0c0'], ['#9aff1a', '#f0ffd8'], ['#e8ff30', '#ffffff'], ['#ffb800', '#fff4c0'], ['#40ff90', '#e0fff0']];
+  // v3.4: enemy fire = red rim + yellow hot core (k1/k4 inverted: yellow body, red rim) with a dark outline so it reads on bright day sky, sea and city
+  const defs = [['#ff2414', '#ffe23a'], ['#ffc81e', '#fff6b0', '#ff2414'], ['#ff2414', '#ffd21a'], ['#ff2a14', '#ffe860'], ['#ffc81e', '#fff6b0', '#ff2414'], ['#ff2414', '#ffd21a']];
   defs.forEach((d, i) => {
     const r = EB_R[i], s = Math.ceil(r * 2 + 4);
-    if (i === 3) { EB_SPR[i] = spr(7, 14, x => { x.fillStyle = d[0]; x.beginPath(); x.ellipse(3.5, 7, 2.6, 6, 0, 0, TAU); x.fill(); x.fillStyle = d[1]; x.beginPath(); x.ellipse(3.5, 7, 1.2, 4, 0, 0, TAU); x.fill(); }); return; }
-    EB_SPR[i] = spr(s, s, x => { C(x, s / 2, s / 2, r, d[0]); C(x, s / 2, s / 2, r * 0.55, d[1]); if (r > 4) C(x, s / 2 - r * 0.2, s / 2 - r * 0.2, r * 0.22, '#ffffff'); });
+    if (i === 3) { EB_SPR[i] = spr(9, 16, x => { x.fillStyle = '#4a0000'; x.beginPath(); x.ellipse(4.5, 8, 3.6, 7.4, 0, 0, TAU); x.fill(); x.fillStyle = d[0]; x.beginPath(); x.ellipse(4.5, 8, 2.6, 6.4, 0, 0, TAU); x.fill(); x.fillStyle = d[1]; x.beginPath(); x.ellipse(4.5, 8, 1.2, 4.4, 0, 0, TAU); x.fill(); }); return; }
+    EB_SPR[i] = spr(s, s, x => { C(x, s / 2, s / 2, r + 1, '#4a0000'); if (d[2]) { C(x, s / 2, s / 2, r, d[2]); C(x, s / 2, s / 2, r * 0.78, d[0]); } else C(x, s / 2, s / 2, r, d[0]); C(x, s / 2, s / 2, r * 0.5, d[1]); if (r > 4) C(x, s / 2 - r * 0.2, s / 2 - r * 0.2, r * 0.2, '#fffbe0'); });
   });
 }
 // player shot sprites
@@ -3100,7 +3101,7 @@ async function netFetchTop() {
 async function netSubmit(e) {
   if (!netOn()) return false; const now = Date.now(); if (now - NET.lastPost < 20000) return false;   // client-side rate limit (server enforces too)
   NET.lastPost = now;
-  try { const r = await netTimeout(fetch(NET.url + '/rest/v1/rpc/submit_score', { method: 'POST', headers: netHdr(), body: JSON.stringify({ p_n: cleanName(e.n), p_s: e.s | 0, p_st: e.st | 0, p_c: e.c | 0, p_done: !!e.done, p_dur: e.dur | 0, p_ver: NET.ver || 'v3.3' }) }), 8000);
+  try { const r = await netTimeout(fetch(NET.url + '/rest/v1/rpc/submit_score', { method: 'POST', headers: netHdr(), body: JSON.stringify({ p_n: cleanName(e.n), p_s: e.s | 0, p_st: e.st | 0, p_c: e.c | 0, p_done: !!e.done, p_dur: e.dur | 0, p_ver: NET.ver || 'v3.4' }) }), 8000);
     if (!r.ok) { NET.lastErr = 'submit ' + r.status; if (r.status >= 500) throw new Error(NET.lastErr); return false; }
     await netFetchTop(); return true;
   } catch (err) { NET.pending.push(e); NET.pending = NET.pending.slice(-3); LS.set('strike_pending', NET.pending); NET.state = 'offline'; return false; }
